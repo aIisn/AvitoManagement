@@ -1,0 +1,31 @@
+# Игнорировать папки с фото
+photo_cache/
+ready_photos/
+
+# Игнорировать логи, конфиги и другие
+main.txt
+service_account.json
+managers.json
+registry.json
+nohup.out
+
+# Игнорировать изображения и тестовые файлы
+Logo.png
+Logo1.png
+cat.jpg
+*.png
+*.jpg
+*.jpeg
+
+# Игнорировать Python-кэш и виртуальные окружения (если есть)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+
+# Игнорировать другие временные файлы
+*.log
+*.tmp
+.DS_Store

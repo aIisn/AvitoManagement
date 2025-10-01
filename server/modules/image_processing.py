@@ -1,3 +1,5 @@
+# server/modules/image_processing.py (обновлен: удален некорректный самоимпорт на верхнем уровне)
+
 from PIL import Image, ImageEnhance
 import numpy as np
 import math
@@ -32,7 +34,7 @@ def load_logo(path):
     try:
         return Image.open(path).convert("RGBA")
     except Exception as e:
-        from utils import log_message
+        from modules.utils import log_message
         log_message(f"Ошибка загрузки логотипа: {e}")
         return None
 

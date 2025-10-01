@@ -1,3 +1,5 @@
+# server/main.py (обновлен: абсолютные пути на основе __file__, добавлены роуты для фото, обслуживание client/ через '../client')
+
 import time
 import threading
 from flask import Flask, request, jsonify, send_from_directory, abort, Response
@@ -5,16 +7,26 @@ import logging
 from werkzeug.exceptions import BadRequest
 import os
 import shutil
-from utils import get_timestamp, log_message, is_suspicious_request, clean_blocked_ips, allowed_file
-from google_sheets import spreadsheet, safe_get_worksheets, run_program
-from ad_processing import process_and_generate
+from modules.utils import get_timestamp, log_message, is_suspicious_request, clean_blocked_ips, allowed_file
+from modules.google_sheets import spreadsheet, safe_get_worksheets, run_program
+from modules.ad_processing import process_and_generate
 
 # ===== НАСТРОЙКИ =====
 CHECK_INTERVAL = 30
-CACHE_DIR = "photo_cache"
-LOCAL_READY_DIR = "ready_photos"
-LOG_FILE = "main.txt"
+BASE_DIR = os.path.dirname(__file__)
+CACHE_DIR = os.path.join(BASE_DIR, 'data', 'photo_cache')
+LOCAL_READY_DIR = os.path.join(BASE_DIR, 'data', 'ready_photos')
+LOG_FILE = os.path.join(BASE_DIR, 'logs', 'main.txt')
 BASE_SERVER_URL = "http://109.172.39.225/"
+CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')
+
+# ===== БЕЗОПАСНОСТЬ =====
+ALLOWED_USER_AGENTS = ['Mozilla/5.0', 'Chrome/', 'Safari/', 'Firefox/', 'Edge/']
+BLOCKED_IPS = set()
+IP_REQUEST_COUNTS = {}
+REQUEST_TIMEOUT = 300
+RATE_LIMIT = 1000  # Увеличено для поддержки больших загрузок
+# ======================
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.WARNING)
@@ -131,14 +143,22 @@ def upload_files():
     log_message(f"📥 Загружено {len(uploaded)} файлов в {category}/{position}: {', '.join(uploaded)}")
     return jsonify({'success': True, 'uploaded': uploaded})
 
+@app.route('/photo_cache/<path:path>')
+def serve_photo_cache(path):
+    return send_from_directory(CACHE_DIR, path)
+
+@app.route('/ready_photos/<path:path>')
+def serve_ready_photos(path):
+    return send_from_directory(LOCAL_READY_DIR, path)
+
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(CLIENT_DIR, 'index.html')
 
 @app.route('/<path:filename>')
 def static_files(filename):
     if filename.endswith('.css') or filename.endswith('.js'):
-        return send_from_directory('.', filename)
+        return send_from_directory(CLIENT_DIR, filename)
     abort(404)
 
 if __name__ == "__main__":

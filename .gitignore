@@ -1,21 +1,19 @@
-# Игнорировать папки с фото
-photo_cache/
-ready_photos/
+# .gitignore (обновлен: добавлены client/ пути для изображений)
 
-# Игнорировать логи, конфиги и другие
-main.txt
-service_account.json
-managers.json
-registry.json
-nohup.out
+# Сервер
+server/data
+server/logs
+server/config
+
+# Клиент
+client/fonts
+client/img
 
 # Игнорировать изображения и тестовые файлы
-Logo.png
-Logo1.png
-cat.jpg
 *.png
 *.jpg
 *.jpeg
+*.json
 
 # Игнорировать Python-кэш и виртуальные окружения (если есть)
 __pycache__/

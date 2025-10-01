@@ -1,19 +1,22 @@
+# server/modules/ad_processing.py (обновлен: BASE_SERVER_URL изменён на "http://109.172.39.225:5000/", удалено экранирование URL для rel_path, т.к. с портом работает без него)
+
 import time
 import random
 import os
 import shutil
 import concurrent.futures
-from image_processing import load_logo, uniquify_image
-from utils import log_message
+from modules.image_processing import load_logo, uniquify_image
+from modules.utils import log_message
 
 # ===== НАСТРОЙКИ =====
 PHOTOS_PER_AD = 10
 MAX_ROWS = 5000
 ALLOWED_EXTENSIONS = ("jpg", "jpeg", "png")
-LOGO = "Logo.png"
-BASE_SERVER_URL = "http://109.172.39.225/"
-CACHE_DIR = "photo_cache"
-LOCAL_READY_DIR = "ready_photos"
+BASE_SERVER_URL = "http://109.172.39.225:5000/"
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
+CACHE_DIR = os.path.join(BASE_DIR, 'data', 'photo_cache')
+LOCAL_READY_DIR = os.path.join(BASE_DIR, 'data', 'ready_photos')
+LOGO = os.path.join(BASE_DIR, 'img', 'Logo.png')
 
 def process_ad(i, position_sources, logo, sheet_title, local_ready_base, use_rotation):
     # Обрабатывает одно объявление

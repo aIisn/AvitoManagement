@@ -1,12 +1,16 @@
+# server/modules/google_sheets.py (обновлен: абсолютный путь к конфигу на основе __file__)
+
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
-from ad_processing import process_and_generate
-from utils import log_message
+import os
+from modules.ad_processing import process_and_generate
+from modules.utils import log_message
 
 # Авторизация в Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'service_account.json')
+creds = ServiceAccountCredentials.from_json_keyfile_name(config_path, scope)
 client = gspread.authorize(creds)
 
 spreadsheet = client.open_by_key("1TpLi_ck_HCXmXTFRkJcrOFAee0RhG5O1WxCxOkHYck4")

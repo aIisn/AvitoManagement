@@ -343,6 +343,21 @@ h1 {
     background: #545b62;
 }
 
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s ease;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
 /* Модальное окно */
 .modal {
     display: none;
@@ -526,7 +541,8 @@ button.delete:hover {
     list-style: none;
     padding: 0;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
@@ -536,11 +552,30 @@ button.delete:hover {
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.3s ease;
+    display: flex;
+    align-items: center;
 }
 
 .manager-item:hover {
     background: #007bff;
     color: white;
+}
+
+.manager-item span {
+    cursor: pointer;
+}
+
+.edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: 10px;
+    transition: transform 0.2s ease;
+}
+
+.edit-btn:hover {
+    transform: scale(1.2);
 }
 
 @keyframes fadeIn {

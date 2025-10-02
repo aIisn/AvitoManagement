@@ -41,7 +41,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно -->
+    <!-- Модальное окно для создания структуры -->
     <div id="confirm-modal" class="modal">
         <div class="modal-content">
             <h3>Подтверждение создания структуры</h3>
@@ -57,6 +57,22 @@
                     <div id="progress-fill" class="progress-fill"></div>
                 </div>
                 <div id="progress-text" class="progress-text">Создание структуры папок...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования менеджера -->
+    <div id="edit-manager-modal" class="modal">
+        <div class="modal-content">
+            <h3>Редактирование менеджера</h3>
+            <div class="input-group">
+                <label for="edit-manager-name">Новое имя:</label>
+                <input type="text" id="edit-manager-name" placeholder="Введите новое имя">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="saveManagerEdit()">Сохранить</button>
+                <button class="btn-secondary" onclick="closeEditModal()">Отмена</button>
+                <button class="btn-danger" onclick="deleteManagerConfirm()">Удалить</button>
             </div>
         </div>
     </div>

@@ -94,6 +94,40 @@ def create_manager():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/rename-manager', methods=['POST'])
+def rename_manager():
+    try:
+        old_name = request.json.get('old_name')
+        new_name = request.json.get('new_name')
+        if not old_name or not new_name:
+            return jsonify({'error': 'Old and new names required'}), 400
+        old_path = os.path.join(MANAGERS_DIR, old_name)
+        new_path = os.path.join(MANAGERS_DIR, new_name)
+        if not os.path.exists(old_path):
+            return jsonify({'error': 'Manager not found'}), 404
+        if os.path.exists(new_path):
+            return jsonify({'error': 'New name already exists'}), 400
+        os.rename(old_path, new_path)
+        log_message(f"🔄 Менеджер '{old_name}' переименован в '{new_name}'")
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/delete-manager', methods=['POST'])
+def delete_manager():
+    try:
+        name = request.json.get('name')
+        if not name:
+            return jsonify({'error': 'Name required'}), 400
+        path = os.path.join(MANAGERS_DIR, name)
+        if not os.path.exists(path):
+            return jsonify({'error': 'Manager not found'}), 404
+        shutil.rmtree(path)
+        log_message(f"🗑️ Менеджер '{name}' удален")
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/list', methods=['GET'])
 def list_files():
     manager = request.args.get('manager')

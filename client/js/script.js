@@ -1,11 +1,11 @@
 // filename="script.js"
 // Глобальные переменные для управления состоянием
 let currentPaths = {}; // {manager: path}
-let managersCategories = {}; // Не нужно, так как теперь per manager на сервере
 let currentManager = null;
 let selectedFiles = {}; // {manager: {position: files[]}}
 let positionCounts = {}; // {manager: count}
 let isProcessing = false;
+let currentEditManager = null;
 
 // Функция для получения логов
 async function fetchLogs(manager = null) {
@@ -117,13 +117,94 @@ async function fetchManagers() {
         list.innerHTML = '';
         managers.forEach(manager => {
             const item = document.createElement('li');
-            item.textContent = manager;
             item.classList.add('manager-item');
-            item.onclick = () => loadManagerContent(manager);
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = manager;
+            nameSpan.onclick = () => loadManagerContent(manager);
+            item.appendChild(nameSpan);
+            const editBtn = document.createElement('button');
+            editBtn.classList.add('edit-btn');
+            editBtn.innerHTML = '✏️';
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                showEditManagerModal(manager);
+            };
+            item.appendChild(editBtn);
             list.appendChild(item);
         });
     } catch (error) {
         console.error('Ошибка загрузки менеджеров:', error);
+    }
+}
+
+// Функция показа модального для редактирования менеджера
+function showEditManagerModal(manager) {
+    currentEditManager = manager;
+    document.getElementById('edit-manager-name').value = manager;
+    document.getElementById('edit-manager-modal').style.display = 'block';
+}
+
+// Функция закрытия модального для редактирования
+function closeEditModal() {
+    document.getElementById('edit-manager-modal').style.display = 'none';
+}
+
+// Функция сохранения редактирования менеджера
+async function saveManagerEdit() {
+    const newName = document.getElementById('edit-manager-name').value.trim();
+    if (!newName || newName === currentEditManager) {
+        closeEditModal();
+        return;
+    }
+    if (confirm(`Переименовать менеджера '${currentEditManager}' в '${newName}'?`)) {
+        try {
+            const response = await fetch('/api/rename-manager', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({old_name: currentEditManager, new_name: newName})
+            });
+            const data = await response.json();
+            if (data.success) {
+                closeEditModal();
+                await fetchManagers();
+                if (currentManager === currentEditManager) {
+                    loadManagerContent(newName);
+                    currentManager = newName;
+                }
+            } else {
+                alert(`Ошибка: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Ошибка переименования менеджера:', error);
+            alert(`Ошибка: ${error.message}`);
+        }
+    }
+}
+
+// Функция подтверждения удаления менеджера
+async function deleteManagerConfirm() {
+    if (confirm(`Удалить менеджера '${currentEditManager}' и все его данные? Это действие нельзя отменить!`)) {
+        try {
+            const response = await fetch('/api/delete-manager', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: currentEditManager})
+            });
+            const data = await response.json();
+            if (data.success) {
+                closeEditModal();
+                await fetchManagers();
+                if (currentManager === currentEditManager) {
+                    document.getElementById('manager-content').innerHTML = '';
+                    currentManager = null;
+                }
+            } else {
+                alert(`Ошибка: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Ошибка удаления менеджера:', error);
+            alert(`Ошибка: ${error.message}`);
+        }
     }
 }
 
@@ -558,9 +639,12 @@ async function createFolderStructure(manager, categoryName) {
 
 // Обработчик клика вне модального
 window.onclick = function(event) {
-    const modal = document.getElementById('confirm-modal');
-    if (event.target === modal) {
+    const confirmModal = document.getElementById('confirm-modal');
+    const editModal = document.getElementById('edit-manager-modal');
+    if (event.target === confirmModal) {
         closeModal();
+    } else if (event.target === editModal) {
+        closeEditModal();
     }
 }
 

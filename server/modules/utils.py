@@ -1,12 +1,8 @@
-# server/modules/utils.py (обновлен: абсолютный путь к логам на основе __file__, добавлены глобальные переменные BLOCKED_IPS и IP_REQUEST_COUNTS, удален параметр request из is_suspicious_request)
+# server/modules/utils.py (обновлен: удалены глобальные переменные BLOCKED_IPS и IP_REQUEST_COUNTS, удалена логика блокировки по количеству запросов в is_suspicious_request, удалена функция clean_blocked_ips)
 
 import pytz
 from datetime import datetime
-import time
 import os
-
-BLOCKED_IPS = set()
-IP_REQUEST_COUNTS = {}
 
 def get_timestamp():
     # Получает текущую временную метку в московском времени
@@ -42,33 +38,7 @@ def is_suspicious_request():
         log_message(f"🚫 Неизвестный метод {method} от {client_ip}")
         return True
     
-    global IP_REQUEST_COUNTS
-    IP_REQUEST_COUNTS[client_ip] = IP_REQUEST_COUNTS.get(client_ip, 0) + 1
-    
-    if IP_REQUEST_COUNTS[client_ip] > 1000:
-        global BLOCKED_IPS
-        BLOCKED_IPS.add(client_ip)
-        log_message(f"🚫 IP {client_ip} заблокирован временно (слишком много запросов)")
-        return True
-    
-    if client_ip in BLOCKED_IPS:
-        return True
-    
     return False
-
-def clean_blocked_ips():
-    # Очищает заблокированные IP по таймауту
-    global BLOCKED_IPS, IP_REQUEST_COUNTS
-    current_time = time.time()
-    expired_ips = []
-    for ip in BLOCKED_IPS:
-        if current_time - IP_REQUEST_COUNTS.get(ip, 0) > 300:
-            expired_ips.append(ip)
-    
-    for ip in expired_ips:
-        BLOCKED_IPS.discard(ip)
-        if ip in IP_REQUEST_COUNTS:
-            del IP_REQUEST_COUNTS[ip]
 
 def allowed_file(filename):
     # Проверяет допустимое расширение файла

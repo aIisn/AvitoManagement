@@ -76,5 +76,25 @@
             </div>
         </div>
     </div>
+
+    <!-- Модальное окно для уникализации -->
+    <div id="uniquify-modal" class="modal">
+        <div class="modal-content">
+            <h3>Уникализация фото</h3>
+            <div class="input-group">
+                <label for="ad-count">Количество объявлений:</label>
+                <input type="number" id="ad-count" min="1" value="1">
+            </div>
+            <div class="input-group">
+                <label>
+                    <input type="checkbox" id="use-rotation" checked> Вращать изображения
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="startUniquify()">Запустить</button>
+                <button class="btn-secondary" onclick="closeUniquifyModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

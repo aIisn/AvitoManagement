@@ -1,5 +1,4 @@
-# filename="main.py"
-# server/main.py (обновлен: добавлена папка managers, роуты для менеджеров, все операции с photo_cache теперь per manager в data/managers/<manager>/photo_cache)
+# server/main.py (обновлен: удалены глобальные BLOCKED_IPS, IP_REQUEST_COUNTS, REQUEST_TIMEOUT, RATE_LIMIT, в security_middleware удален вызов clean_blocked_ips)
 
 import time
 import threading
@@ -8,25 +7,19 @@ import logging
 from werkzeug.exceptions import BadRequest
 import os
 import shutil
-from modules.utils import get_timestamp, log_message, is_suspicious_request, clean_blocked_ips, allowed_file
-from modules.google_sheets import spreadsheet, safe_get_worksheets, run_program
+from modules.utils import get_timestamp, log_message, is_suspicious_request, allowed_file
 from modules.ad_processing import process_and_generate
 
 # ===== НАСТРОЙКИ =====
 CHECK_INTERVAL = 30
 BASE_DIR = os.path.dirname(__file__)
 MANAGERS_DIR = os.path.join(BASE_DIR, 'data', 'managers')
-LOCAL_READY_DIR = os.path.join(BASE_DIR, 'data', 'ready_photos')  # Глобальная, но можно сделать per manager если нужно
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'main.txt')
 BASE_SERVER_URL = "http://109.172.39.225/"
 CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')
 
 # ===== БЕЗОПАСНОСТЬ =====
 ALLOWED_USER_AGENTS = ['Mozilla/5.0', 'Chrome/', 'Safari/', 'Firefox/', 'Edge/']
-BLOCKED_IPS = set()
-IP_REQUEST_COUNTS = {}
-REQUEST_TIMEOUT = 300
-RATE_LIMIT = 1000  # Увеличено для поддержки больших загрузок
 # ======================
 
 app = Flask(__name__)
@@ -43,21 +36,12 @@ def security_middleware():
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         if request.method == 'OPTIONS':
             return response
-    clean_blocked_ips()
 
 @app.errorhandler(BadRequest)
 def handle_bad_request(e):
     client_ip = request.remote_addr
     log_message(f"🚫 Плохой HTTP-запрос от {client_ip} - игнорируем")
     return 'Bad Request', 400
-
-@app.route('/api/sheets', methods=['GET'])
-def get_sheets():
-    try:
-        sheets = [s.title for s in safe_get_worksheets(spreadsheet)]
-        return jsonify(sheets)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
@@ -134,7 +118,7 @@ def list_files():
     dir_type = request.args.get('dir')
     if not manager or dir_type not in ['photo_cache', 'ready_photos']:
         return jsonify({'error': 'Manager and valid directory required'}), 400
-    base_dir = os.path.join(MANAGERS_DIR, manager, dir_type) if dir_type == 'photo_cache' else LOCAL_READY_DIR  # ready_photos глобальная, если нужно изменить
+    base_dir = os.path.join(MANAGERS_DIR, manager, dir_type)
     path = request.args.get('path', '')
     full_path = os.path.normpath(os.path.join(base_dir, path))
     if not full_path.startswith(base_dir) or not os.path.exists(full_path):
@@ -154,7 +138,7 @@ def delete_item():
     dir_type = data.get('dir')
     if not manager or dir_type not in ['photo_cache', 'ready_photos']:
         return jsonify({'error': 'Manager and valid directory required'}), 400
-    base_dir = os.path.join(MANAGERS_DIR, manager, dir_type) if dir_type == 'photo_cache' else LOCAL_READY_DIR
+    base_dir = os.path.join(MANAGERS_DIR, manager, dir_type)
     path = data.get('path')
     full_path = os.path.normpath(os.path.join(base_dir, path))
     if not full_path.startswith(base_dir) or not os.path.exists(full_path) or full_path == base_dir:
@@ -208,13 +192,28 @@ def upload_files():
     log_message(f"📥 Загружено {len(uploaded)} файлов для менеджера '{manager}' в {category}/{position}: {', '.join(uploaded)}")
     return jsonify({'success': True, 'uploaded': uploaded})
 
+@app.route('/api/uniquify', methods=['POST'])
+def uniquify():
+    data = request.json
+    manager = data.get('manager')
+    folder_name = data.get('folder_name')
+    count = data.get('count')
+    use_rotation = data.get('use_rotation', True)
+    if not manager or not folder_name or not count:
+        return jsonify({'error': 'Manager, folder_name and count required'}), 400
+    try:
+        results = process_and_generate(folder_name, count, use_rotation, manager)
+        return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/<manager>/photo_cache/<path:path>')
 def serve_photo_cache(manager, path):
     return send_from_directory(os.path.join(MANAGERS_DIR, manager, 'photo_cache'), path)
 
-@app.route('/ready_photos/<path:path>')
-def serve_ready_photos(path):
-    return send_from_directory(LOCAL_READY_DIR, path)
+@app.route('/<manager>/ready_photos/<path:path>')
+def serve_ready_photos(manager, path):
+    return send_from_directory(os.path.join(MANAGERS_DIR, manager, 'ready_photos'), path)
 
 @app.route('/')
 def index():
@@ -228,16 +227,5 @@ def static_files(filename):
 
 if __name__ == "__main__":
     os.makedirs(MANAGERS_DIR, exist_ok=True)
-    os.makedirs(LOCAL_READY_DIR, exist_ok=True)
-    log_message("⏳ Ожидание флага 'Да' в C4 на всех листах...")
-    def main_loop():
-        while True:
-            try:
-                sheets = safe_get_worksheets(spreadsheet)
-                for sheet in sheets:
-                    run_program(sheet)
-            except Exception as e:
-                log_message(f"⚠️ Не удалось обработать листы: {e}, повтор через {CHECK_INTERVAL} сек.")
-            time.sleep(CHECK_INTERVAL)
-    threading.Thread(target=main_loop, daemon=True).start()
+    log_message("⏳ Сервер запущен")
     app.run(host='0.0.0.0', port=5000, threaded=True)

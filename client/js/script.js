@@ -6,6 +6,7 @@ let selectedFiles = {}; // {manager: {position: files[]}}
 let positionCounts = {}; // {manager: count}
 let isProcessing = false;
 let currentEditManager = null;
+let currentUniquifyCategory = null;
 
 // Функция для получения логов
 async function fetchLogs(manager = null) {
@@ -49,6 +50,17 @@ function renderCard(node, parentElement, manager, path) {
             if (e.target.tagName === 'BUTTON') return;
             await fetchManagerGrid(manager, parentElement.id, fullPath);
         };
+        // Добавляем кнопку "Уникализировать" для корневых директорий (категорий)
+        if (path === '') {
+            const uniquifyBtn = document.createElement('button');
+            uniquifyBtn.textContent = 'Уникализировать';
+            uniquifyBtn.classList.add('uniquify-btn');
+            uniquifyBtn.onclick = (e) => {
+                e.stopPropagation();
+                showUniquifyModal(manager, node.name);
+            };
+            card.appendChild(uniquifyBtn);
+        }
     }
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = 'Удалить';
@@ -81,6 +93,137 @@ function renderCard(node, parentElement, manager, path) {
     };
     card.appendChild(deleteBtn);
     parentElement.appendChild(card);
+}
+
+// Функция показа модального для уникализации
+function showUniquifyModal(manager, category) {
+    currentManager = manager;
+    currentUniquifyCategory = category;
+    document.getElementById('ad-count').value = 1;
+    document.getElementById('use-rotation').checked = true;
+    document.getElementById('uniquify-modal').style.display = 'block';
+}
+
+// Функция закрытия модального для уникализации
+function closeUniquifyModal() {
+    document.getElementById('uniquify-modal').style.display = 'none';
+}
+
+// Функция запуска уникализации
+async function startUniquify() {
+    const count = parseInt(document.getElementById('ad-count').value);
+    const useRotation = document.getElementById('use-rotation').checked;
+    if (count < 1) {
+        alert('Количество объявлений должно быть не менее 1');
+        return;
+    }
+    closeUniquifyModal();
+    // Показываем прогресс (используем существующий, но для простоты новый div)
+    const progressDiv = document.createElement('div');
+    progressDiv.innerHTML = '<p>Уникализация в процессе...</p>';
+    document.getElementById(`grid-${currentManager}`).after(progressDiv);
+    try {
+        const response = await fetch('/api/uniquify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                manager: currentManager,
+                folder_name: currentUniquifyCategory,
+                count: count,
+                use_rotation: useRotation
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            renderResultsTable(data.results, currentManager);
+        } else {
+            alert(`Ошибка: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Ошибка уникализации:', error);
+        alert(`Ошибка: ${error.message}`);
+    } finally {
+        progressDiv.remove();
+    }
+}
+
+// Функция рендеринга таблицы результатов
+function renderResultsTable(results, manager) {
+    const tableSection = document.createElement('div');
+    tableSection.classList.add('section');
+    tableSection.innerHTML = '<h2>Результаты уникализации</h2>';
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    const thead = document.createElement('thead');
+    const tr = document.createElement('tr');
+    const th1 = document.createElement('th');
+    th1.textContent = '№';
+    const th2 = document.createElement('th');
+    th2.textContent = 'Ссылки';
+    
+    // Добавляем кнопку "Скопировать ссылки" в заголовок второй колонки
+    const copyButton = document.createElement('button');
+    copyButton.textContent = 'Скопировать ссылки';
+    copyButton.classList.add('copy-btn');
+    copyButton.onclick = () => {
+        const links = results.map(result => result[1]);
+        const clipboardText = links.map(link => `"${link.replace(/"/g, '""')}"`).join('\n');
+        copyToClipboard(clipboardText, copyButton);
+    };
+    th2.appendChild(copyButton);
+    
+    tr.appendChild(th1);
+    tr.appendChild(th2);
+    thead.appendChild(tr);
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    results.forEach(result => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${result[0]}</td><td>${result[1].replace(/\n/g, '<br>')}</td>`;
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tableSection.appendChild(table);
+
+    document.getElementById(`grid-${manager}`).after(tableSection);
+}
+
+// Функция копирования в буфер обмена с fallback
+function copyToClipboard(text, button) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            button.textContent = 'Скопировано!';
+            setTimeout(() => { button.textContent = 'Скопировать ссылки'; }, 2000);
+        }).catch(err => {
+            console.error('Ошибка clipboard API:', err);
+            fallbackCopy(text, button);
+        });
+    } else {
+        fallbackCopy(text, button);
+    }
+}
+
+// Fallback метод копирования
+function fallbackCopy(text, button) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        button.textContent = 'Скопировано!';
+        setTimeout(() => { button.textContent = 'Скопировать ссылки'; }, 2000);
+    } catch (err) {
+        console.error('Ошибка fallback копирования:', err);
+        alert('Ошибка при копировании в буфер обмена');
+    }
+    document.body.removeChild(textArea);
 }
 
 // Функция создания менеджера

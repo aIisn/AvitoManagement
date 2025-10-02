@@ -1,4 +1,5 @@
-# server/main.py (обновлен: абсолютные пути на основе __file__, добавлены роуты для фото, обслуживание client/ через '../client')
+# filename="main.py"
+# server/main.py (обновлен: добавлена папка managers, роуты для менеджеров, все операции с photo_cache теперь per manager в data/managers/<manager>/photo_cache)
 
 import time
 import threading
@@ -14,8 +15,8 @@ from modules.ad_processing import process_and_generate
 # ===== НАСТРОЙКИ =====
 CHECK_INTERVAL = 30
 BASE_DIR = os.path.dirname(__file__)
-CACHE_DIR = os.path.join(BASE_DIR, 'data', 'photo_cache')
-LOCAL_READY_DIR = os.path.join(BASE_DIR, 'data', 'ready_photos')
+MANAGERS_DIR = os.path.join(BASE_DIR, 'data', 'managers')
+LOCAL_READY_DIR = os.path.join(BASE_DIR, 'data', 'ready_photos')  # Глобальная, но можно сделать per manager если нужно
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'main.txt')
 BASE_SERVER_URL = "http://109.172.39.225/"
 CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')
@@ -70,12 +71,36 @@ def get_logs():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/managers', methods=['GET'])
+def list_managers():
+    try:
+        managers = [d for d in os.listdir(MANAGERS_DIR) if os.path.isdir(os.path.join(MANAGERS_DIR, d))]
+        return jsonify(managers)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/create-manager', methods=['POST'])
+def create_manager():
+    try:
+        name = request.json.get('name')
+        if not name:
+            return jsonify({'error': 'Name required'}), 400
+        manager_path = os.path.join(MANAGERS_DIR, name)
+        os.makedirs(manager_path, exist_ok=True)
+        os.makedirs(os.path.join(manager_path, 'photo_cache'), exist_ok=True)
+        os.makedirs(os.path.join(manager_path, 'ready_photos'), exist_ok=True)
+        log_message(f"📁 Создана папка для менеджера '{name}'")
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/list', methods=['GET'])
 def list_files():
+    manager = request.args.get('manager')
     dir_type = request.args.get('dir')
-    if dir_type not in ['photo_cache', 'ready_photos']:
-        return jsonify({'error': 'Invalid directory'}), 400
-    base_dir = CACHE_DIR if dir_type == 'photo_cache' else LOCAL_READY_DIR
+    if not manager or dir_type not in ['photo_cache', 'ready_photos']:
+        return jsonify({'error': 'Manager and valid directory required'}), 400
+    base_dir = os.path.join(MANAGERS_DIR, manager, dir_type) if dir_type == 'photo_cache' else LOCAL_READY_DIR  # ready_photos глобальная, если нужно изменить
     path = request.args.get('path', '')
     full_path = os.path.normpath(os.path.join(base_dir, path))
     if not full_path.startswith(base_dir) or not os.path.exists(full_path):
@@ -90,11 +115,13 @@ def list_files():
 
 @app.route('/api/delete', methods=['POST'])
 def delete_item():
-    dir_type = request.json.get('dir')
-    if dir_type not in ['photo_cache', 'ready_photos']:
-        return jsonify({'error': 'Invalid directory'}), 400
-    base_dir = CACHE_DIR if dir_type == 'photo_cache' else LOCAL_READY_DIR
-    path = request.json.get('path')
+    data = request.json
+    manager = data.get('manager')
+    dir_type = data.get('dir')
+    if not manager or dir_type not in ['photo_cache', 'ready_photos']:
+        return jsonify({'error': 'Manager and valid directory required'}), 400
+    base_dir = os.path.join(MANAGERS_DIR, manager, dir_type) if dir_type == 'photo_cache' else LOCAL_READY_DIR
+    path = data.get('path')
     full_path = os.path.normpath(os.path.join(base_dir, path))
     if not full_path.startswith(base_dir) or not os.path.exists(full_path) or full_path == base_dir:
         return jsonify({'error': 'Invalid path or cannot delete root'}), 400
@@ -109,30 +136,34 @@ def delete_item():
 
 @app.route('/api/create-folder-structure', methods=['POST'])
 def create_folder_structure():
-    category = request.json.get('category')
-    positions = request.json.get('positions', [])
-    if not category:
-        return jsonify({'error': 'Category required'}), 400
+    data = request.json
+    manager = data.get('manager')
+    category = data.get('category')
+    positions = data.get('positions', [])
+    if not manager or not category:
+        return jsonify({'error': 'Manager and category required'}), 400
     try:
-        category_path = os.path.join(CACHE_DIR, category)
+        cache_dir = os.path.join(MANAGERS_DIR, manager, 'photo_cache')
+        category_path = os.path.join(cache_dir, category)
         os.makedirs(category_path, exist_ok=True)
         created_folders = []
         for pos in positions:
             pos_path = os.path.join(category_path, pos)
             os.makedirs(pos_path, exist_ok=True)
             created_folders.append(pos)
-        log_message(f"📁 Создана структура папок для категории '{category}': {', '.join(created_folders)}")
+        log_message(f"📁 Создана структура папок для менеджера '{manager}', категории '{category}': {', '.join(created_folders)}")
         return jsonify({'success': True, 'created': created_folders})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
+    manager = request.form.get('manager')
     category = request.form.get('category')
     position = request.form.get('position')
-    if not category or not position:
-        return jsonify({'error': 'Category and position required'}), 400
-    base_path = os.path.join(CACHE_DIR, category, position)
+    if not manager or not category or not position:
+        return jsonify({'error': 'Manager, category and position required'}), 400
+    base_path = os.path.join(MANAGERS_DIR, manager, 'photo_cache', category, position)
     os.makedirs(base_path, exist_ok=True)
     uploaded = []
     for file in request.files.getlist('files'):
@@ -140,12 +171,12 @@ def upload_files():
             filename = file.filename
             file.save(os.path.join(base_path, filename))
             uploaded.append(filename)
-    log_message(f"📥 Загружено {len(uploaded)} файлов в {category}/{position}: {', '.join(uploaded)}")
+    log_message(f"📥 Загружено {len(uploaded)} файлов для менеджера '{manager}' в {category}/{position}: {', '.join(uploaded)}")
     return jsonify({'success': True, 'uploaded': uploaded})
 
-@app.route('/photo_cache/<path:path>')
-def serve_photo_cache(path):
-    return send_from_directory(CACHE_DIR, path)
+@app.route('/<manager>/photo_cache/<path:path>')
+def serve_photo_cache(manager, path):
+    return send_from_directory(os.path.join(MANAGERS_DIR, manager, 'photo_cache'), path)
 
 @app.route('/ready_photos/<path:path>')
 def serve_ready_photos(path):
@@ -162,7 +193,7 @@ def static_files(filename):
     abort(404)
 
 if __name__ == "__main__":
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    os.makedirs(MANAGERS_DIR, exist_ok=True)
     os.makedirs(LOCAL_READY_DIR, exist_ok=True)
     log_message("⏳ Ожидание флага 'Да' в C4 на всех листах...")
     def main_loop():

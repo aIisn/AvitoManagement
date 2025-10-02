@@ -12,7 +12,7 @@
     <div class="container">
         <h1>Клиент для управления фото и логами</h1>
 
-        <ul class="tabs">
+        <ul class="tabs" id="tabs-list">
             <li class="tab-link active" data-tab="main">Главная</li>
             <li class="tab-link" data-tab="photo-uniquification">Уникализация фото</li>
         </ul>
@@ -25,41 +25,19 @@
         </div>
 
         <div id="photo-uniquification" class="tab-content">
-            <div class="folder-setup">
-                <h2>Создание структуры папок</h2>
-
-                <div class="input-group">
-                    <label for="category-name">Название папки:</label>
-                    <input type="text" id="category-name" placeholder="Введите название категории">
-                    <small>Укажите это название в Google таблице в ячейке "Название папки с подпапками" (C6)</small>
-                </div>
-
-                <div class="position-container">
-                    <div class="position-row" id="position-row">
-                        <div class="position-tile active" data-position="1">
-                            <button class="clear-photos" onclick="clearPhotos(1)" title="Очистить фотографии">🧹</button>
-                            <button class="delete-position" onclick="deletePosition(1)" title="Удалить позицию">🗑️</button>
-                            <div class="tile-header">
-                                <div class="position-number">1</div>
-                                <div class="position-label">Фото для 1-й позиции</div>
-                            </div>
-                            <div class="thumbnail-container" id="thumbnails-1"></div>
-                            <button class="upload-button" onclick="openFileInput(1)">Загрузить изображения</button>
-                            <input type="file" multiple class="file-input" accept="image/*" style="display: none;">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn-add-position" onclick="addPosition()">+ Добавить позицию</button>
-                    <button class="btn-primary" onclick="showConfirmModal()">Подтвердить</button>
-                </div>
-            </div>
-
             <div class="section">
-                <h2>Логи (последние 20 строк)</h2>
-                <pre id="logs"></pre>
+                <h2>Управление менеджерами</h2>
+                <div class="input-group">
+                    <label for="manager-name">Имя менеджера:</label>
+                    <input type="text" id="manager-name" placeholder="Введите имя менеджера">
+                </div>
+                <button class="btn-primary" onclick="createManager()">Создать менеджера</button>
             </div>
+            <div class="section">
+                <h2>Список менеджеров</h2>
+                <ul id="manager-list" class="manager-list"></ul>
+            </div>
+            <div id="manager-content"></div>
         </div>
     </div>
 

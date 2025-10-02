@@ -1,3 +1,4 @@
+/* filename="styles.css" */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -436,87 +437,6 @@ pre {
     max-height: 500px;
     overflow-y: auto;
     box-sizing: border-box;
-}
-
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px;
-    width: 100%;
-}
-
-.card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    padding: 15px;
-    text-align: center;
-    cursor: pointer;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    animation: fadeInUp 0.5s ease;
-    border: 2px solid transparent;
-    position: relative;
-    overflow: hidden;
-    box-sizing: border-box;
-    width: 100%;
-}
-
-.card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-}
-
-.card.dir {
-    border-color: #007bff;
-}
-
-.card.dir:before {
-    content: '📁 ';
-    font-size: 2em;
-    display: block;
-    margin-bottom: 10px;
-}
-
-.card.file:before {
-    content: '🖼️ ';
-    font-size: 2em;
-    display: block;
-    margin-bottom: 10px;
-}
-
-.card .name {
-    margin: 10px 0;
-    font-weight: 500;
-    color: #4a5568;
-    word-wrap: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-}
-
-button.delete {
-    background: #dc3545;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 10px;
-    font-size: 12px;
-    transition: background 0.3s ease;
-    box-sizing: border-box;
-    width: auto;
-}
-
-button.delete:hover {
-    background: #c82333;
 }
 
 @keyframes fadeIn {

@@ -1,77 +1,18 @@
+// filename="script.js"
+// Глобальные переменные для управления состоянием
 let currentPaths = { 'photo_cache': '', 'ready_photos': '' };
 let positionCount = 1;
 let selectedFiles = {};
 let isProcessing = false;
 
+// Функция для получения логов
 async function fetchLogs() {
     const response = await fetch('/api/logs');
     const data = await response.json();
     document.getElementById('logs').textContent = data.logs.join('\n');
 }
 
-async function fetchGrid(dir, elementId, path = '') {
-    if (isProcessing) return;
-    isProcessing = true;
-    try {
-        const response = await fetch(`/api/list?dir=${dir}&path=${path}`);
-        const data = await response.json();
-        const grid = document.getElementById(elementId);
-        grid.innerHTML = '';
-        data.children.forEach(node => renderCard(node, grid, dir, path));
-    } catch (error) {
-        console.error(`Ошибка при загрузке сетки ${dir}:`, error);
-    } finally {
-        isProcessing = false;
-    }
-}
-
-function renderCard(node, parentElement, dir, path) {
-    const card = document.createElement('div');
-    card.classList.add('card', node.type);
-    const name = document.createElement('div');
-    name.classList.add('name');
-    name.textContent = node.name;
-    card.appendChild(name);
-    const fullPath = path ? `${path}/${node.name}` : node.name;
-    if (node.type === 'dir') {
-        card.onclick = async (e) => {
-            if (e.target.tagName === 'BUTTON') return;
-            currentPaths[dir] = fullPath;
-            await fetchGrid(dir, `${dir}-grid`, fullPath);
-        };
-    }
-    const deleteBtn = document.createElement('button');
-    deleteBtn.textContent = 'Удалить';
-    deleteBtn.classList.add('delete');
-    deleteBtn.onclick = async (e) => {
-        e.stopPropagation();
-        if (isProcessing) return;
-        isProcessing = true;
-        try {
-            if (confirm(`Вы уверены, что хотите удалить "${node.name}"? Это действие нельзя отменить.\nВсе файлы в папке будут удалены!`)) {
-                const response = await fetch('/api/delete', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({dir, path: fullPath})
-                });
-                const data = await response.json();
-                if (data.success) {
-                    parentElement.removeChild(card);
-                } else {
-                    alert(`Ошибка: ${data.error}`);
-                }
-            }
-        } catch (error) {
-            console.error('Ошибка при удалении:', error);
-            alert(`Ошибка: ${error.message}`);
-        } finally {
-            isProcessing = false;
-        }
-    };
-    card.appendChild(deleteBtn);
-    parentElement.appendChild(card);
-}
-
+// Функция добавления новой позиции
 function addPosition() {
     if (isProcessing) return;
     isProcessing = true;
@@ -106,6 +47,7 @@ function addPosition() {
     }
 }
 
+// Функция удаления позиции
 function deletePosition(positionNumber) {
     if (isProcessing) return;
     isProcessing = true;
@@ -149,6 +91,7 @@ function deletePosition(positionNumber) {
     }
 }
 
+// Функция очистки фото в позиции
 function clearPhotos(positionNumber) {
     if (isProcessing) return;
     isProcessing = true;
@@ -176,6 +119,7 @@ function clearPhotos(positionNumber) {
     }
 }
 
+// Обработка выбора файлов
 function handleFileSelection(event, position) {
     if (isProcessing) return;
     isProcessing = true;
@@ -226,6 +170,7 @@ function handleFileSelection(event, position) {
     }
 }
 
+// Обновление счётчика файлов
 function updateFileCount(position) {
     if (isProcessing) return;
     isProcessing = true;
@@ -248,12 +193,14 @@ function updateFileCount(position) {
     }
 }
 
+// Открытие выбора файлов
 function openFileInput(position) {
     const tile = document.querySelector(`[data-position="${position}"]`);
     const fileInput = tile.querySelector('.file-input');
     fileInput.click();
 }
 
+// Показ модального окна подтверждения
 function showConfirmModal() {
     if (isProcessing) return;
     isProcessing = true;
@@ -280,6 +227,7 @@ function showConfirmModal() {
     }
 }
 
+// Закрытие модального окна
 function closeModal() {
     if (isProcessing) return;
     isProcessing = true;
@@ -292,6 +240,7 @@ function closeModal() {
     }
 }
 
+// Создание структуры папок и загрузка файлов
 async function createFolderStructure() {
     if (isProcessing) return;
     isProcessing = true;
@@ -400,7 +349,6 @@ async function createFolderStructure() {
                 </div>
             `;
             initFirstPosition();
-            await fetchGrid('photo_cache', 'photo-cache-grid');
         } else {
             const warningDiv = document.createElement('div');
             warningDiv.style.cssText = `
@@ -438,6 +386,7 @@ async function createFolderStructure() {
     }
 }
 
+// Инициализация первой позиции
 function initFirstPosition() {
     if (isProcessing) return;
     isProcessing = true;
@@ -456,6 +405,7 @@ function initFirstPosition() {
     }
 }
 
+// Обработчик клика вне модального окна
 window.onclick = function(event) {
     const modal = document.getElementById('confirm-modal');
     if (event.target === modal) {
@@ -463,6 +413,7 @@ window.onclick = function(event) {
     }
 }
 
+// Обработчик вкладок
 document.querySelectorAll('.tab-link').forEach(tab => {
     tab.addEventListener('click', function() {
         document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
@@ -472,10 +423,9 @@ document.querySelectorAll('.tab-link').forEach(tab => {
     });
 });
 
+// Инициализация при загрузке страницы
 window.onload = () => {
     initFirstPosition();
-    fetchGrid('photo_cache', 'photo-cache-grid');
-    fetchGrid('ready_photos', 'ready-photos-grid');
     fetchLogs();
     setInterval(fetchLogs, 2000);
 };

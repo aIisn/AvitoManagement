@@ -8,14 +8,14 @@ from werkzeug.exceptions import BadRequest
 import os
 import shutil
 from modules.utils import get_timestamp, log_message, is_suspicious_request, allowed_file
-from modules.ad_processing import process_and_generate
+from modules.ad_processing import process_and_generate, PHOTOS_PER_AD
 
 # ===== НАСТРОЙКИ =====
 CHECK_INTERVAL = 30
 BASE_DIR = os.path.dirname(__file__)
 MANAGERS_DIR = os.path.join(BASE_DIR, 'data', 'managers')
 LOG_FILE = os.path.join(BASE_DIR, 'logs', 'main.txt')
-BASE_SERVER_URL = "http://109.172.39.225/"
+BASE_SERVER_URL = "http://109.172.39.225:5000/"
 CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')
 
 # ===== БЕЗОПАСНОСТЬ =====
@@ -42,6 +42,32 @@ def handle_bad_request(e):
     client_ip = request.remote_addr
     log_message(f"🚫 Плохой HTTP-запрос от {client_ip} - игнорируем")
     return 'Bad Request', 400
+
+@app.route('/api/get_links', methods=['GET'])
+def get_links():
+    manager = request.args.get('manager')
+    category = request.args.get('category')
+    if not manager or not category:
+        return jsonify({'error': 'Manager and category required'}), 400
+    try:
+        ready_base = os.path.join(MANAGERS_DIR, manager, 'ready_photos', category)
+        if not os.path.exists(ready_base):
+            return jsonify({'error': 'Category not found'}), 404
+        ad_dirs = sorted([d for d in os.listdir(ready_base) if os.path.isdir(os.path.join(ready_base, d))])
+        results = []
+        for idx, ad_dir in enumerate(ad_dirs, 1):
+            ad_path = os.path.join(ready_base, ad_dir)
+            files = sorted([f for f in os.listdir(ad_path) if f.lower().endswith('.jpg')])
+            if len(files) == PHOTOS_PER_AD:
+                links = []
+                for file in files:
+                    rel_path = os.path.join(category, ad_dir, file)
+                    url = f"{BASE_SERVER_URL}{manager}/ready_photos/{rel_path}"
+                    links.append(url)
+                results.append([idx, "\n".join(links)])
+        return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/logs', methods=['GET'])
 def get_logs():

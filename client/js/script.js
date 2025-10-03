@@ -19,16 +19,49 @@ async function fetchLogs(manager = null) {
 }
 
 // Функция для загрузки сетки папок для менеджера
-async function fetchManagerGrid(manager, gridId, path = '') {
+async function fetchManagerGrid(manager, gridId, path = '', dir_type = 'photo_cache') {
     if (isProcessing) return;
     isProcessing = true;
     try {
         currentPaths[manager] = path;
-        const response = await fetch(`/api/list?manager=${manager}&dir=photo_cache&path=${path}`);
+        const response = await fetch(`/api/list?manager=${manager}&dir=${dir_type}&path=${path}`);
         const data = await response.json();
         const grid = document.getElementById(gridId);
-        grid.innerHTML = '';
-        data.children.forEach(node => renderCard(node, grid, manager, path));
+        if (path === '' && dir_type === 'photo_cache') {
+            // Специальная логика для корня photo_cache: парное отображение с ready_photos
+            const photo_dirs = data.children.filter(node => node.type === 'dir');
+            const ready_response = await fetch(`/api/list?manager=${manager}&dir=ready_photos&path=`);
+            const ready_data = await ready_response.json();
+            const ready_map = new Map(ready_data.children.filter(node => node.type === 'dir').map(node => [node.name, node]));
+            grid.innerHTML = '';
+            for (const photo_node of photo_dirs) {
+                const row = document.createElement('div');
+                row.classList.add('card-row');
+                renderCard(photo_node, row, manager, path, 'photo_cache');
+                if (ready_map.has(photo_node.name)) {
+                    const chain = document.createElement('span');
+                    chain.classList.add('chain-icon');
+                    chain.textContent = '🔗';
+                    row.appendChild(chain);
+                    const category_path = photo_node.name;
+                    const count_response = await fetch(`/api/list?manager=${manager}&dir=ready_photos&path=${category_path}`);
+                    const count_data = await count_response.json();
+                    const count = count_data.children.length;
+                    const unique_node = {
+                        name: photo_node.name,
+                        type: 'dir-unique',
+                        path: category_path,
+                        count: count
+                    };
+                    renderCard(unique_node, row, manager, path, 'ready_photos');
+                }
+                grid.appendChild(row);
+            }
+        } else {
+            // Обычная логика для поддиректорий или ready_photos
+            grid.innerHTML = '';
+            data.children.forEach(node => renderCard(node, grid, manager, path, dir_type));
+        }
     } catch (error) {
         console.error(`Ошибка при загрузке сетки для ${manager}:`, error);
     } finally {
@@ -37,49 +70,65 @@ async function fetchManagerGrid(manager, gridId, path = '') {
 }
 
 // Функция рендеринга карточки
-function renderCard(node, parentElement, manager, path) {
+// Функция рендеринга карточки с общим контейнером для кнопок и применением общих стилей
+function renderCard(node, parentElement, manager, path, dir_type) {
     const card = document.createElement('div');
     card.classList.add('card', node.type);
+    if (node.type === 'dir-unique') {
+        card.classList.add('unique');
+    }
     const name = document.createElement('div');
     name.classList.add('name');
     name.textContent = node.name;
     card.appendChild(name);
     const fullPath = path ? `${path}/${node.name}` : node.name;
-    if (node.type === 'dir') {
+    if (node.type.startsWith('dir')) {
         card.onclick = async (e) => {
             if (e.target.tagName === 'BUTTON') return;
-            await fetchManagerGrid(manager, parentElement.id, fullPath);
+            const target_dir = (node.type === 'dir-unique') ? 'ready_photos' : dir_type;
+            await fetchManagerGrid(manager, `grid-${manager}`, fullPath, target_dir);
         };
-        // Добавляем кнопку "Уникализировать" для корневых директорий (категорий)
-        if (path === '') {
-            const uniquifyBtn = document.createElement('button');
-            uniquifyBtn.textContent = 'Уникализировать';
-            uniquifyBtn.classList.add('uniquify-btn');
-            uniquifyBtn.onclick = (e) => {
-                e.stopPropagation();
-                showUniquifyModal(manager, node.name);
-            };
-            card.appendChild(uniquifyBtn);
-        }
+    }
+    let leftBtn = null;
+    // Кнопка для исходных папок
+    if (path === '' && dir_type === 'photo_cache' && node.type === 'dir') {
+        leftBtn = document.createElement('button');
+        leftBtn.textContent = 'Уникализировать';
+        leftBtn.classList.add('uniquify-btn', 'btn-common');
+        leftBtn.onclick = (e) => {
+            e.stopPropagation();
+            showUniquifyModal(manager, node.name);
+        };
+    }
+    // Кнопка для готовых папок
+    if (node.type === 'dir-unique') {
+        leftBtn = document.createElement('button');
+        leftBtn.textContent = 'Показать ссылки';
+        leftBtn.classList.add('get-links-btn', 'btn-common');
+        leftBtn.onclick = (e) => {
+            e.stopPropagation();
+            fetchLinks(manager, node.name);
+        };
     }
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = 'Удалить';
-    deleteBtn.classList.add('delete');
+    deleteBtn.classList.add('delete', 'btn-common');
     deleteBtn.onclick = async (e) => {
         e.stopPropagation();
         if (isProcessing) return;
         isProcessing = true;
         try {
             if (confirm(`Вы уверены, что хотите удалить "${node.name}"? Это действие нельзя отменить.\nВсе файлы в папке будут удалены!`)) {
+                const target_dir = (node.type === 'dir-unique') ? 'ready_photos' : dir_type;
                 const response = await fetch('/api/delete', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({manager, dir: 'photo_cache', path: fullPath})
+                    body: JSON.stringify({manager, dir: target_dir, path: fullPath})
                 });
                 const data = await response.json();
                 if (data.success) {
                     parentElement.removeChild(card);
-                    await fetchManagerGrid(manager, parentElement.id, path);
+                    await fetchManagerGrid(manager, `grid-${manager}`, path, dir_type);
                 } else {
                     alert(`Ошибка: ${data.error}`);
                 }
@@ -91,7 +140,21 @@ function renderCard(node, parentElement, manager, path) {
             isProcessing = false;
         }
     };
-    card.appendChild(deleteBtn);
+    // Общий контейнер для кнопок
+    const buttonContainer = document.createElement('div');
+    buttonContainer.classList.add('button-container');
+    if (leftBtn) {
+        buttonContainer.appendChild(leftBtn);
+    }
+    buttonContainer.appendChild(deleteBtn);
+    card.appendChild(buttonContainer);
+    // Добавляем бейдж с количеством для уникальных папок
+    if (node.count !== undefined) {
+        const badge = document.createElement('div');
+        badge.classList.add('count-badge');
+        badge.textContent = `${node.count} адс`;
+        card.appendChild(badge);
+    }
     parentElement.appendChild(card);
 }
 
@@ -136,6 +199,7 @@ async function startUniquify() {
         const data = await response.json();
         if (data.success) {
             renderResultsTable(data.results, currentManager);
+            await fetchManagerGrid(currentManager, `grid-${currentManager}`);
         } else {
             alert(`Ошибка: ${data.error}`);
         }
@@ -146,6 +210,21 @@ async function startUniquify() {
         progressDiv.remove();
     }
 }
+
+async function fetchLinks(manager, category) {
+    try {
+        const response = await fetch(`/api/get_links?manager=${manager}&category=${category}`);
+        const data = await response.json();
+        if (data.success) {
+            renderResultsTable(data.results, manager);
+        } else {
+            alert(`Ошибка: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Ошибка получения ссылок:', error);
+        alert(`Ошибка: ${error.message}`);
+    }
+}   
 
 // Функция рендеринга таблицы результатов
 function renderResultsTable(results, manager) {

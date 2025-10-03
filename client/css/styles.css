@@ -457,8 +457,8 @@ pre {
 }
 
 .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 20px;
     width: 100%;
 }
@@ -475,8 +475,8 @@ pre {
     border: 2px solid transparent;
     position: relative;
     overflow: hidden;
+    flex: 0 0 calc(25% - 15px);
     box-sizing: border-box;
-    width: 100%;
 }
 
 .card:hover {
@@ -485,7 +485,7 @@ pre {
 }
 
 .card.dir {
-    border-color: #007bff;
+    border-color: #9d00ff;
 }
 
 .card.dir:before {
@@ -519,22 +519,58 @@ pre {
     width: 100%;
 }
 
-button.delete {
-    background: #dc3545;
+.btn-common {
     color: white;
     border: none;
     padding: 8px 12px;
     border-radius: 6px;
     cursor: pointer;
-    margin-top: 10px;
     font-size: 12px;
     transition: background 0.3s ease;
-    box-sizing: border-box;
     width: auto;
+}
+
+button.delete {
+    background: #dc3545;
 }
 
 button.delete:hover {
     background: #c82333;
+}
+
+.card-row {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    flex: 0 0 calc(50% - 10px);
+    border: 2px solid #a1a1a152;
+    border-radius: 12px;
+    padding: 10px;
+    background: #f0f8ff;
+    box-sizing: border-box;
+}
+
+.card-row .card {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+}
+
+.chain-icon {
+    font-size: 24px;
+    color: #007bff;
+    align-self: center;
+}
+
+.card.unique {
+    border-color: #28a745;
+}
+
+.card.unique:before {
+    content: '📦 ';
+    font-size: 2em;
+    display: block;
+    margin-bottom: 10px;
 }
 
 .manager-list {
@@ -565,6 +601,22 @@ button.delete:hover {
     cursor: pointer;
 }
 
+.get-links-btn {
+    background: #6f42c1;
+}
+
+.get-links-btn:hover {
+    background: #5a32a3;
+}
+
+.button-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 10px;
+    gap: 10px;
+}
+
 .edit-btn {
     background: none;
     border: none;
@@ -579,17 +631,7 @@ button.delete:hover {
 }
 
 .uniquify-btn {
-    margin: 0 10px 0 0;
     background: #28a745;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-top: 10px;
-    font-size: 12px;
-    transition: background 0.3s ease;
-    width: auto;
 }
 
 .uniquify-btn:hover {

@@ -554,6 +554,30 @@ button.delete:hover {
     border-color: #007bff; /* Синяя обводка для связанных */
 }
 
+.logo-upload {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.logo-upload input[type="file"] {
+    margin-bottom: 10px;
+}
+
+.logo-upload button {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.logo-upload button:hover {
+    background: #0056b3;
+}
+
 .card-row .card {
     flex: 1 1 0;
     min-width: 0;

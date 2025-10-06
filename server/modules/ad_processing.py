@@ -1,5 +1,5 @@
 # filename="ad_processing.py"
-# server/modules/ad_processing.py (обновлен: добавлен порт :5000 в BASE_SERVER_URL для корректного открытия ссылок на изображения)
+# server/modules/ad_processing.py (обновлен: удалено глобальное определение LOGO, порт :5000 сохранен в BASE_SERVER_URL)
 
 import time
 import random
@@ -15,7 +15,6 @@ MAX_ROWS = 5000
 ALLOWED_EXTENSIONS = ("jpg", "jpeg", "png")
 BASE_SERVER_URL = "http://109.172.39.225:5000/"
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-LOGO = os.path.join(BASE_DIR, 'img', 'Logo.png')
 
 def process_ad(i, position_sources, logo, folder_name, local_ready_base, use_rotation, manager):
     # Обрабатывает одно объявление
@@ -91,7 +90,9 @@ def process_and_generate(folder_name, count, use_rotation, manager):
             error_msg = f"❌ В некоторых позициях нет файлов"
             log_message(error_msg)
             return []
-        logo = load_logo(LOGO)
+        # Формируем путь к логотипу внутри функции
+        logo_path = os.path.join(BASE_DIR, 'data', 'managers', manager, 'img', 'Logo.png')
+        logo = load_logo(logo_path)
         local_ready_base = os.path.join(BASE_DIR, 'data', 'managers', manager, 'ready_photos', folder_name)
         if os.path.exists(local_ready_base):
             log_message(f"🗑️ удаление старой папки")

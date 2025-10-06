@@ -37,6 +37,13 @@
                 <h2>Список менеджеров</h2>
                 <ul id="manager-list" class="manager-list"></ul>
             </div>
+            <!-- Новая секция для загрузки логотипа -->
+            <div class="section logo-upload" id="logo-upload-section" style="display: none;">
+                <h3>Загрузка логотипа для менеджера</h3>
+                <input type="file" id="logo-input" accept="image/png">
+                <button class="btn-primary" onclick="uploadLogo(currentManager)">Загрузить логотип</button>
+                <p>Логотип будет сохранен как Logo.png и применен при уникализации.</p>
+            </div>
             <div id="manager-content"></div>
         </div>
     </div>

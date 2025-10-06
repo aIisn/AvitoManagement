@@ -69,6 +69,34 @@ async function fetchManagerGrid(manager, gridId, path = '', dir_type = 'photo_ca
     } finally {
         isProcessing = false;
     }
+    document.getElementById('logo-upload-section').style.display = 'block';
+}
+
+async function uploadLogo(manager) {
+    const fileInput = document.getElementById('logo-input');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Выберите файл логотипа');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('manager', manager);
+    formData.append('logo', file);
+    try {
+        const response = await fetch('/api/upload_logo', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert('Логотип успешно загружен!');
+        } else {
+            alert(`Ошибка: ${data.error}`);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки логотипа:', error);
+        alert('Ошибка загрузки');
+    }
 }
 
 // Функция рендеринга карточки

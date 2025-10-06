@@ -107,6 +107,23 @@ def list_managers():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/upload_logo', methods=['POST'])
+def upload_logo():
+    manager = request.form.get('manager')
+    if not manager:
+        return jsonify({'error': 'Manager required'}), 400
+    if 'logo' not in request.files:
+        return jsonify({'error': 'No logo file'}), 400
+    file = request.files['logo']
+    if file and allowed_file(file.filename):
+        img_dir = os.path.join(MANAGERS_DIR, manager, 'img')
+        os.makedirs(img_dir, exist_ok=True)
+        file_path = os.path.join(img_dir, 'Logo.png')
+        file.save(file_path)
+        log_message(f"📤 Логотип загружен для менеджера '{manager}'")
+        return jsonify({'success': True})
+    return jsonify({'error': 'Invalid file'}), 400
+
 @app.route('/api/create-manager', methods=['POST'])
 def create_manager():
     try:
@@ -117,6 +134,7 @@ def create_manager():
         os.makedirs(manager_path, exist_ok=True)
         os.makedirs(os.path.join(manager_path, 'photo_cache'), exist_ok=True)
         os.makedirs(os.path.join(manager_path, 'ready_photos'), exist_ok=True)
+        os.makedirs(os.path.join(manager_path, 'img'), exist_ok=True)  # Новая директория для логотипа
         log_message(f"📁 Создана папка для менеджера '{name}'")
         return jsonify({'success': True})
     except Exception as e:

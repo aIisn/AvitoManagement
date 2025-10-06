@@ -33,25 +33,27 @@ async function fetchManagerGrid(manager, gridId, path = '', dir_type = 'photo_ca
             const ready_response = await fetch(`/api/list?manager=${manager}&dir=ready_photos&path=`);
             const ready_data = await ready_response.json();
             const ready_map = new Map(ready_data.children.filter(node => node.type === 'dir').map(node => [node.name, node]));
+            // Единый fetch для всех counts
+            const count_response = await fetch(`/api/count_ready?manager=${manager}`);
+            const count_data = await count_response.json();
+            const countMap = new Map(Object.entries(count_data.counts || {}));
             grid.innerHTML = '';
             for (const photo_node of photo_dirs) {
                 const row = document.createElement('div');
                 row.classList.add('card-row');
                 renderCard(photo_node, row, manager, path, 'photo_cache');
                 if (ready_map.has(photo_node.name)) {
+                    row.classList.add('linked'); // Добавляем класс для обводки
                     const chain = document.createElement('span');
                     chain.classList.add('chain-icon');
                     chain.textContent = '🔗';
                     row.appendChild(chain);
                     const category_path = photo_node.name;
-                    const count_response = await fetch(`/api/list?manager=${manager}&dir=ready_photos&path=${category_path}`);
-                    const count_data = await count_response.json();
-                    const count = count_data.children.length;
                     const unique_node = {
                         name: photo_node.name,
                         type: 'dir-unique',
                         path: category_path,
-                        count: count
+                        count: countMap.get(category_path) || 0
                     };
                     renderCard(unique_node, row, manager, path, 'ready_photos');
                 }

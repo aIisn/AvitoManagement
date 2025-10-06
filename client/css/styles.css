@@ -543,11 +543,15 @@ button.delete:hover {
     align-items: stretch;
     gap: 10px;
     flex: 0 0 calc(50% - 10px);
-    border: 2px solid #a1a1a152;
+    border: 2px solid #a1a1a152; /* Легкая обводка по умолчанию */
     border-radius: 12px;
     padding: 10px;
     background: #f0f8ff;
     box-sizing: border-box;
+}
+
+.card-row.linked { /* Класс для связанных рядов */
+    border-color: #007bff; /* Синяя обводка для связанных */
 }
 
 .card-row .card {

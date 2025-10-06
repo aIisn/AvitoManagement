@@ -37,6 +37,24 @@ def security_middleware():
         if request.method == 'OPTIONS':
             return response
 
+@app.route('/api/count_ready', methods=['GET'])
+def count_ready():
+    manager = request.args.get('manager')
+    if not manager:
+        return jsonify({'error': 'Manager required'}), 400
+    try:
+        ready_base = os.path.join(MANAGERS_DIR, manager, 'ready_photos')
+        if not os.path.exists(ready_base):
+            return jsonify({'counts': {}}), 200
+        categories = [d for d in os.listdir(ready_base) if os.path.isdir(os.path.join(ready_base, d))]
+        counts = {}
+        for cat in categories:
+            cat_path = os.path.join(ready_base, cat)
+            counts[cat] = len([d for d in os.listdir(cat_path) if os.path.isdir(os.path.join(cat_path, d))])
+        return jsonify({'counts': counts})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.errorhandler(BadRequest)
 def handle_bad_request(e):
     client_ip = request.remote_addr

@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 from flask import request, jsonify, session
 import logging
+from modules.redis_manager import (
+    store_session_redis, get_session_redis, delete_session_redis, 
+    delete_user_sessions_redis, redis_manager
+)
 
 # ============================================================================
 # КОНФИГУРАЦИЯ / CONFIGURATION
@@ -86,6 +90,31 @@ def create_user_session(user_id: str, username: str, email: str) -> Tuple[str, D
         Tuple[str, Dict]: (токен сессии, данные сессии) / (session token, session data)
     """
     try:
+        # Создаем новую сессию / Create new session
+        session_token = generate_session_token()
+        current_time = datetime.now().isoformat()
+        
+        session_data = {
+            'user_id': user_id,
+            'username': username,
+            'email': email,
+            'created_at': current_time,
+            'last_activity': current_time,
+            'ip_address': request.remote_addr if request else 'unknown',
+            'user_agent': request.headers.get('User-Agent', 'unknown') if request else 'unknown'
+        }
+        
+        # Try Redis first, fallback to file storage / Пробуем Redis сначала, fallback на файловое хранилище
+        if redis_manager.is_available():
+            # Clean old sessions for user in Redis / Очищаем старые сессии пользователя в Redis
+            cleanup_user_sessions_redis(user_id)
+            
+            # Store in Redis / Сохраняем в Redis
+            if store_session_redis(session_token, session_data):
+                logging.info(f"Создана сессия в Redis для пользователя {username} ({user_id})")
+                return session_token, session_data
+        
+        # Fallback to file storage / Fallback на файловое хранилище
         sessions = load_sessions()
         
         # Очищаем старые сессии пользователя / Clean old user sessions
@@ -102,27 +131,13 @@ def create_user_session(user_id: str, username: str, email: str) -> Tuple[str, D
                 oldest_session = min(sessions[user_id].items(), key=lambda x: x[1]['created_at'])
                 del sessions[user_id][oldest_session[0]]
         
-        # Создаем новую сессию / Create new session
-        session_token = generate_session_token()
-        current_time = datetime.now().isoformat()
-        
-        session_data = {
-            'user_id': user_id,
-            'username': username,
-            'email': email,
-            'created_at': current_time,
-            'last_activity': current_time,
-            'ip_address': request.remote_addr if request else 'unknown',
-            'user_agent': request.headers.get('User-Agent', 'unknown') if request else 'unknown'
-        }
-        
         if user_id not in sessions:
             sessions[user_id] = {}
         
         sessions[user_id][session_token] = session_data
         
         if save_sessions(sessions):
-            logging.info(f"Создана сессия для пользователя {username} ({user_id})")
+            logging.info(f"Создана сессия в файле для пользователя {username} ({user_id})")
             return session_token, session_data
         else:
             return None, None
@@ -130,6 +145,54 @@ def create_user_session(user_id: str, username: str, email: str) -> Tuple[str, D
     except Exception as e:
         logging.error(f"Ошибка создания сессии: {e}")
         return None, None
+
+def cleanup_user_sessions_redis(user_id: str) -> bool:
+    """
+    Clean up old sessions for a user in Redis / Очистить старые сессии пользователя в Redis
+    
+    Args:
+        user_id: ID пользователя / User ID
+    
+    Returns:
+        bool: True if cleaned successfully / True если очищено успешно
+    """
+    if not redis_manager.is_available():
+        return False
+    
+    try:
+        client = redis_manager.get_client()
+        if not client:
+            return False
+        
+        user_sessions_key = f"avito:user_sessions:{user_id}"
+        session_tokens = client.smembers(user_sessions_key)
+        
+        # Check each session and remove expired ones / Проверяем каждую сессию и удаляем истекшие
+        expired_tokens = []
+        for token in session_tokens:
+            session_key = f"avito:session:{token}"
+            session_data = client.get(session_key)
+            
+            if session_data:
+                try:
+                    data = json.loads(session_data)
+                    if is_session_expired(data['created_at']):
+                        expired_tokens.append(token)
+                except (json.JSONDecodeError, KeyError):
+                    expired_tokens.append(token)
+            else:
+                expired_tokens.append(token)
+        
+        # Remove expired sessions / Удаляем истекшие сессии
+        for token in expired_tokens:
+            session_key = f"avito:session:{token}"
+            client.delete(session_key)
+            client.srem(user_sessions_key, token)
+        
+        return True
+    except Exception as e:
+        logging.error(f"Ошибка очистки сессий пользователя в Redis: {e}")
+        return False
 
 def validate_session_token(session_token: str) -> Tuple[bool, Optional[Dict]]:
     """
@@ -145,6 +208,23 @@ def validate_session_token(session_token: str) -> Tuple[bool, Optional[Dict]]:
         if not session_token:
             return False, None
         
+        # Try Redis first / Пробуем Redis сначала
+        if redis_manager.is_available():
+            session_data = get_session_redis(session_token)
+            if session_data:
+                # Проверяем срок действия / Check expiry
+                if is_session_expired(session_data['created_at']):
+                    # Удаляем истекшую сессию / Remove expired session
+                    delete_session_redis(session_token)
+                    return False, None
+                
+                # Обновляем время последней активности / Update last activity
+                session_data['last_activity'] = datetime.now().isoformat()
+                store_session_redis(session_token, session_data)
+                
+                return True, session_data
+        
+        # Fallback to file storage / Fallback на файловое хранилище
         sessions = load_sessions()
         
         # Ищем сессию по токену / Find session by token
@@ -182,13 +262,20 @@ def destroy_session(session_token: str) -> bool:
         bool: Успех операции / Operation success
     """
     try:
+        # Try Redis first / Пробуем Redis сначала
+        if redis_manager.is_available():
+            if delete_session_redis(session_token):
+                logging.info(f"Сессия {session_token} уничтожена в Redis")
+                return True
+        
+        # Fallback to file storage / Fallback на файловое хранилище
         sessions = load_sessions()
         
         for user_id, user_sessions in sessions.items():
             if session_token in user_sessions:
                 del user_sessions[session_token]
                 save_sessions(sessions)
-                logging.info(f"Сессия {session_token} уничтожена")
+                logging.info(f"Сессия {session_token} уничтожена в файле")
                 return True
         
         return False
@@ -208,12 +295,19 @@ def destroy_all_user_sessions(user_id: str) -> bool:
         bool: Успех операции / Operation success
     """
     try:
+        # Try Redis first / Пробуем Redis сначала
+        if redis_manager.is_available():
+            if delete_user_sessions_redis(user_id):
+                logging.info(f"Все сессии пользователя {user_id} уничтожены в Redis")
+                return True
+        
+        # Fallback to file storage / Fallback на файловое хранилище
         sessions = load_sessions()
         
         if user_id in sessions:
             del sessions[user_id]
             save_sessions(sessions)
-            logging.info(f"Все сессии пользователя {user_id} уничтожены")
+            logging.info(f"Все сессии пользователя {user_id} уничтожены в файле")
             return True
         
         return False

@@ -34,6 +34,10 @@ from modules.auth_middleware import (
     require_auth, get_current_user, is_authenticated, 
     api_logout, api_get_user_sessions, cleanup_expired_sessions
 )
+from modules.redis_manager import (
+    initialize_redis, shutdown_redis, get_redis_info, 
+    cache_set, cache_get, cache_delete, clear_all_cache
+)
 
 # ===== SETTINGS / НАСТРОЙКИ =====
 CHECK_INTERVAL = 30  # Interval for periodic checks in seconds / Интервал периодических проверок в секундах
@@ -675,6 +679,166 @@ def api_get_current_user():
         log_message(f"❌ Ошибка получения данных пользователя: {str(e)}")
         return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
 
+# ============================================================================
+# REDIS MANAGEMENT API ENDPOINTS / API ЭНДПОИНТЫ УПРАВЛЕНИЯ REDIS
+# ============================================================================
+
+@app.route('/api/redis/info', methods=['GET'])
+@require_auth
+def api_redis_info():
+    """
+    Получение информации о Redis / Get Redis information
+    
+    Returns:
+        JSON: Redis server information / Информация о сервере Redis
+    """
+    try:
+        redis_info = get_redis_info()
+        return jsonify({
+            'success': True,
+            'redis': redis_info
+        })
+    except Exception as e:
+        log_message(f"❌ Ошибка получения информации о Redis: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/redis/cache/clear', methods=['POST'])
+@require_auth
+def api_clear_cache():
+    """
+    Очистка всего кэша Redis / Clear all Redis cache
+    
+    Returns:
+        JSON: Success status / Статус успеха
+    """
+    try:
+        success = clear_all_cache()
+        if success:
+            log_message("🧹 Кэш Redis очищен администратором")
+            return jsonify({
+                'success': True,
+                'message': 'Кэш успешно очищен'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Не удалось очистить кэш'
+            }), 500
+    except Exception as e:
+        log_message(f"❌ Ошибка очистки кэша: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/redis/cache/set', methods=['POST'])
+@require_auth
+def api_cache_set():
+    """
+    Установка значения в кэш Redis / Set value in Redis cache
+    
+    JSON body:
+        key: Cache key / Ключ кэша
+        value: Value to cache / Значение для кэширования
+        ttl: Time to live in seconds (optional) / Время жизни в секундах (опционально)
+        prefix: Key prefix (optional) / Префикс ключа (опционально)
+    
+    Returns:
+        JSON: Success status / Статус успеха
+    """
+    try:
+        data = request.json
+        key = data.get('key')
+        value = data.get('value')
+        ttl = data.get('ttl')
+        prefix = data.get('prefix', 'cache')
+        
+        if not key or value is None:
+            return jsonify({'success': False, 'error': 'Ключ и значение обязательны'}), 400
+        
+        success = cache_set(key, value, ttl, prefix)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Значение успешно закэшировано'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Не удалось закэшировать значение'
+            }), 500
+    except Exception as e:
+        log_message(f"❌ Ошибка установки кэша: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/redis/cache/get', methods=['GET'])
+@require_auth
+def api_cache_get():
+    """
+    Получение значения из кэша Redis / Get value from Redis cache
+    
+    Query parameters:
+        key: Cache key / Ключ кэша
+        prefix: Key prefix (optional) / Префикс ключа (опционально)
+    
+    Returns:
+        JSON: Cached value or error / Закэшированное значение или ошибка
+    """
+    try:
+        key = request.args.get('key')
+        prefix = request.args.get('prefix', 'cache')
+        
+        if not key:
+            return jsonify({'success': False, 'error': 'Ключ обязателен'}), 400
+        
+        value = cache_get(key, prefix)
+        if value is not None:
+            return jsonify({
+                'success': True,
+                'value': value
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Значение не найдено в кэше'
+            }), 404
+    except Exception as e:
+        log_message(f"❌ Ошибка получения кэша: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/redis/cache/delete', methods=['DELETE'])
+@require_auth
+def api_cache_delete():
+    """
+    Удаление значения из кэша Redis / Delete value from Redis cache
+    
+    JSON body:
+        key: Cache key / Ключ кэша
+        prefix: Key prefix (optional) / Префикс ключа (опционально)
+    
+    Returns:
+        JSON: Success status / Статус успеха
+    """
+    try:
+        data = request.json
+        key = data.get('key')
+        prefix = data.get('prefix', 'cache')
+        
+        if not key:
+            return jsonify({'success': False, 'error': 'Ключ обязателен'}), 400
+        
+        success = cache_delete(key, prefix)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Значение успешно удалено из кэша'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Не удалось удалить значение из кэша'
+            }), 500
+    except Exception as e:
+        log_message(f"❌ Ошибка удаления кэша: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
 @app.route('/<manager>/photo_cache/<path:path>')
 def serve_photo_cache(manager, path):
     return send_from_directory(os.path.join(MANAGERS_DIR, manager, 'photo_cache'), path)
@@ -724,10 +888,25 @@ if __name__ == "__main__":
     # Create managers directory if it doesn't exist / Создать директорию менеджеров если её не существует
     os.makedirs(MANAGERS_DIR, exist_ok=True)
     
+    # Initialize Redis connection / Инициализируем подключение к Redis
+    redis_initialized = initialize_redis()
+    if redis_initialized:
+        log_message("✅ Redis подключен и готов к работе")
+    else:
+        log_message("⚠️ Redis недоступен, используется файловое хранилище сессий")
+    
     # Запускаем фоновую задачу очистки сессий / Start background session cleanup task
     cleanup_thread = threading.Thread(target=cleanup_sessions_periodically, daemon=True)
     cleanup_thread.start()
     
-    log_message("⏳ Сервер запущен с защитой авторизации")
-    # Запустить Flask сервер
-    app.run(host='0.0.0.0', port=5000, threaded=True)
+    log_message("⏳ Сервер запущен с защитой авторизации и Redis поддержкой")
+    
+    try:
+        # Запустить Flask сервер / Start Flask server
+        app.run(host='0.0.0.0', port=5000, threaded=True)
+    except KeyboardInterrupt:
+        log_message("🛑 Получен сигнал остановки сервера")
+    finally:
+        # Shutdown Redis connection / Завершаем подключение к Redis
+        shutdown_redis()
+        log_message("🔌 Redis подключение закрыто")

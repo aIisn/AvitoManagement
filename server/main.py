@@ -26,6 +26,14 @@ import os
 import shutil
 from modules.utils import get_timestamp, log_message, is_suspicious_request, allowed_file
 from modules.ad_processing import process_and_generate, PHOTOS_PER_AD
+from modules.user_management import (
+    register_user, verify_user_email, authenticate_user, authenticate_user_with_session,
+    resend_verification_code, get_user_by_email, get_user_by_username
+)
+from modules.auth_middleware import (
+    require_auth, get_current_user, is_authenticated, 
+    api_logout, api_get_user_sessions, cleanup_expired_sessions
+)
 
 # ===== SETTINGS / НАСТРОЙКИ =====
 CHECK_INTERVAL = 30  # Interval for periodic checks in seconds / Интервал периодических проверок в секундах
@@ -67,6 +75,7 @@ def security_middleware():
             return response
 
 @app.route('/api/count_ready', methods=['GET'])
+@require_auth
 def count_ready():
     manager = request.args.get('manager')
     if not manager:
@@ -100,6 +109,7 @@ def handle_bad_request(e):
     return 'Bad Request', 400
 
 @app.route('/api/get_links', methods=['GET'])
+@require_auth
 def get_links():
     manager = request.args.get('manager')
     category = request.args.get('category')
@@ -126,6 +136,7 @@ def get_links():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/logs', methods=['GET'])
+@require_auth
 def get_logs():
     try:
         if os.path.exists(LOG_FILE):
@@ -138,6 +149,7 @@ def get_logs():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/managers', methods=['GET'])
+@require_auth
 def list_managers():
     try:
         managers = [d for d in os.listdir(MANAGERS_DIR) if os.path.isdir(os.path.join(MANAGERS_DIR, d))]
@@ -146,6 +158,7 @@ def list_managers():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/upload_logo', methods=['POST'])
+@require_auth
 def upload_logo():
     """
     Upload logo image for a manager / Загрузить изображение логотипа для менеджера
@@ -173,6 +186,7 @@ def upload_logo():
     return jsonify({'error': 'Invalid file'}), 400
 
 @app.route('/api/create-manager', methods=['POST'])
+@require_auth
 def create_manager():
     """
     Create a new manager with directory structure / Создать нового менеджера со структурой директорий
@@ -206,6 +220,7 @@ def create_manager():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/rename-manager', methods=['POST'])
+@require_auth
 def rename_manager():
     """
     Rename an existing manager / Переименовать существующего менеджера
@@ -239,6 +254,7 @@ def rename_manager():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/delete-manager', methods=['POST'])
+@require_auth
 def delete_manager():
     """
     Delete a manager and all associated data / Удалить менеджера и все связанные данные
@@ -266,6 +282,7 @@ def delete_manager():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/list', methods=['GET'])
+@require_auth
 def list_files():
     manager = request.args.get('manager')
     dir_type = request.args.get('dir')
@@ -285,6 +302,7 @@ def list_files():
     return jsonify({'children': items})
 
 @app.route('/api/delete', methods=['POST'])
+@require_auth
 def delete_item():
     data = request.json
     manager = data.get('manager')
@@ -306,6 +324,7 @@ def delete_item():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/create-folder-structure', methods=['POST'])
+@require_auth
 def create_folder_structure():
     """
     Create folder structure for photo positions / Создать структуру папок для позиций фотографий
@@ -344,6 +363,7 @@ def create_folder_structure():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/upload', methods=['POST'])
+@require_auth
 def upload_files():
     """
     Upload multiple photo files to a specific position / Загрузить несколько фото-файлов в определённую позицию
@@ -379,6 +399,7 @@ def upload_files():
     return jsonify({'success': True, 'uploaded': uploaded})
 
 @app.route('/api/uniquify', methods=['POST'])
+@require_auth
 def uniquify():
     data = request.json
     manager = data.get('manager')
@@ -393,6 +414,267 @@ def uniquify():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ============================================================================
+# API ENDPOINTS ДЛЯ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ / USER MANAGEMENT API ENDPOINTS
+# ============================================================================
+
+@app.route('/api/auth/register', methods=['POST'])
+def api_register():
+    """
+    Регистрация нового пользователя / Register new user
+    
+    JSON body:
+        username: Имя пользователя / Username
+        email: Email пользователя / User's email
+        password: Пароль / Password
+    
+    Returns:
+        JSON: Success status and message / Статус успеха и сообщение
+    """
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not email or not password:
+            return jsonify({'success': False, 'error': 'Все поля обязательны для заполнения'}), 400
+        
+        success, message = register_user(username, email, password)
+        
+        if success:
+            log_message(f"📝 Новый пользователь зарегистрирован: {username} ({email})")
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка регистрации: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/auth/verify', methods=['POST'])
+def api_verify_email():
+    """
+    Верификация email пользователя / Verify user's email
+    
+    JSON body:
+        email: Email пользователя / User's email
+        code: Код верификации / Verification code
+    
+    Returns:
+        JSON: Success status and message / Статус успеха и сообщение
+    """
+    try:
+        data = request.json
+        email = data.get('email', '').strip()
+        code = data.get('code', '').strip()
+        
+        if not email or not code:
+            return jsonify({'success': False, 'error': 'Email и код верификации обязательны'}), 400
+        
+        success, message = verify_user_email(email, code)
+        
+        if success:
+            log_message(f"✅ Email верифицирован: {email}")
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка верификации: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """
+    Авторизация пользователя / User authentication
+    
+    JSON body:
+        username: Имя пользователя или email / Username or email
+        password: Пароль / Password
+    
+    Returns:
+        JSON: Success status, message, user data and session token / Статус успеха, сообщение, данные пользователя и токен сессии
+    """
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'Имя пользователя и пароль обязательны'}), 400
+        
+        success, message, user_data, session_token = authenticate_user_with_session(username, password)
+        
+        if success:
+            log_message(f"🔐 Пользователь авторизован: {user_data['username']}")
+            
+            # Создаем ответ с токеном сессии / Create response with session token
+            response = jsonify({
+                'success': True, 
+                'message': message,
+                'user': user_data,
+                'session_token': session_token
+            })
+            
+            # Устанавливаем cookie с токеном сессии / Set cookie with session token
+            response.set_cookie(
+                'session_token', 
+                session_token, 
+                max_age=24*60*60,  # 24 часа / 24 hours
+                httponly=True,     # Защита от XSS / XSS protection
+                secure=False,      # В продакшене должно быть True / Should be True in production
+                samesite='Lax'     # CSRF защита / CSRF protection
+            )
+            
+            return response
+        else:
+            return jsonify({'success': False, 'error': message}), 401
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка авторизации: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/auth/resend-code', methods=['POST'])
+def api_resend_verification_code():
+    """
+    Повторная отправка кода верификации / Resend verification code
+    
+    JSON body:
+        email: Email пользователя / User's email
+    
+    Returns:
+        JSON: Success status and message / Статус успеха и сообщение
+    """
+    try:
+        data = request.json
+        email = data.get('email', '').strip()
+        
+        if not email:
+            return jsonify({'success': False, 'error': 'Email обязателен'}), 400
+        
+        success, message = resend_verification_code(email)
+        
+        if success:
+            log_message(f"📧 Код верификации повторно отправлен: {email}")
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка повторной отправки кода: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/auth/check-email', methods=['POST'])
+def api_check_email():
+    """
+    Проверка существования email / Check if email exists
+    
+    JSON body:
+        email: Email для проверки / Email to check
+    
+    Returns:
+        JSON: Email status / Статус email
+    """
+    try:
+        data = request.json
+        email = data.get('email', '').strip()
+        
+        if not email:
+            return jsonify({'success': False, 'error': 'Email обязателен'}), 400
+        
+        user = get_user_by_email(email)
+        
+        if user:
+            return jsonify({
+                'success': True,
+                'exists': True,
+                'verified': user['verified'],
+                'username': user['username']
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'exists': False
+            })
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка проверки email: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/auth/logout', methods=['POST'])
+@require_auth
+def api_logout():
+    """
+    Выход из системы / Logout
+    
+    Returns:
+        JSON: Success status and message / Статус успеха и сообщение
+    """
+    try:
+        # Получаем токен сессии / Get session token
+        auth_header = request.headers.get('Authorization')
+        session_token = None
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            session_token = auth_header[7:]
+        else:
+            session_token = request.cookies.get('session_token')
+        
+        if not session_token:
+            return jsonify({'success': False, 'error': 'Токен сессии не найден'}), 400
+        
+        # Выходим из системы / Logout
+        success, message = api_logout(session_token)
+        
+        if success:
+            log_message(f"🚪 Пользователь вышел из системы: {get_current_user()['username']}")
+            
+            # Создаем ответ и удаляем cookie / Create response and remove cookie
+            response = jsonify({
+                'success': True,
+                'message': message
+            })
+            response.set_cookie('session_token', '', expires=0)
+            
+            return response
+        else:
+            return jsonify({'success': False, 'error': message}), 400
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка выхода: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/auth/me', methods=['GET'])
+@require_auth
+def api_get_current_user():
+    """
+    Получение данных текущего пользователя / Get current user data
+    
+    Returns:
+        JSON: Current user data / Данные текущего пользователя
+    """
+    try:
+        current_user = get_current_user()
+        
+        if current_user:
+            return jsonify({
+                'success': True,
+                'user': {
+                    'id': current_user['user_id'],
+                    'username': current_user['username'],
+                    'email': current_user['email'],
+                    'session_created': current_user['created_at'],
+                    'last_activity': current_user['last_activity']
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'}), 404
+            
+    except Exception as e:
+        log_message(f"❌ Ошибка получения данных пользователя: {str(e)}")
+        return jsonify({'success': False, 'error': 'Внутренняя ошибка сервера'}), 500
+
 @app.route('/<manager>/photo_cache/<path:path>')
 def serve_photo_cache(manager, path):
     return send_from_directory(os.path.join(MANAGERS_DIR, manager, 'photo_cache'), path)
@@ -403,17 +685,49 @@ def serve_ready_photos(manager, path):
 
 @app.route('/')
 def index():
+    # Проверяем авторизацию для главной страницы / Check authorization for main page
+    session_token = request.cookies.get('session_token')
+    
+    if not session_token:
+        # Перенаправляем на страницу авторизации / Redirect to auth page
+        return send_from_directory(CLIENT_DIR, 'auth.html')
+    
+    # Валидируем сессию / Validate session
+    from modules.auth_middleware import validate_session_token
+    is_valid, session_data = validate_session_token(session_token)
+    
+    if not is_valid:
+        # Перенаправляем на страницу авторизации / Redirect to auth page
+        return send_from_directory(CLIENT_DIR, 'auth.html')
+    
+    # Пользователь авторизован, показываем главную страницу / User is authenticated, show main page
     return send_from_directory(CLIENT_DIR, 'index.html')
 
 @app.route('/<path:filename>')
 def static_files(filename):
-    if filename.endswith('.css') or filename.endswith('.js'):
+    if filename.endswith('.css') or filename.endswith('.js') or filename.endswith('.html'):
         return send_from_directory(CLIENT_DIR, filename)
     abort(404)
+
+def cleanup_sessions_periodically():
+    """Периодическая очистка истекших сессий / Periodic cleanup of expired sessions"""
+    while True:
+        try:
+            time.sleep(CHECK_INTERVAL * 60)  # Каждые 30 минут / Every 30 minutes
+            removed_count = cleanup_expired_sessions()
+            if removed_count > 0:
+                log_message(f"🧹 Очищено {removed_count} истекших сессий")
+        except Exception as e:
+            log_message(f"❌ Ошибка очистки сессий: {e}")
 
 if __name__ == "__main__":
     # Create managers directory if it doesn't exist / Создать директорию менеджеров если её не существует
     os.makedirs(MANAGERS_DIR, exist_ok=True)
-    log_message("⏳ Сервер запущен")
+    
+    # Запускаем фоновую задачу очистки сессий / Start background session cleanup task
+    cleanup_thread = threading.Thread(target=cleanup_sessions_periodically, daemon=True)
+    cleanup_thread.start()
+    
+    log_message("⏳ Сервер запущен с защитой авторизации")
     # Запустить Flask сервер
     app.run(host='0.0.0.0', port=5000, threaded=True)

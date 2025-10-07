@@ -1,4 +1,21 @@
-# server/main.py (обновлен: удалены глобальные BLOCKED_IPS, IP_REQUEST_COUNTS, REQUEST_TIMEOUT, RATE_LIMIT, в security_middleware удален вызов clean_blocked_ips)
+# server/main.py
+# Main Flask Application Server / Основной сервер Flask-приложения
+# Updated: removed global BLOCKED_IPS, IP_REQUEST_COUNTS, REQUEST_TIMEOUT, RATE_LIMIT, removed clean_blocked_ips call in security_middleware
+# Обновлён: удалены глобальные BLOCKED_IPS, IP_REQUEST_COUNTS, REQUEST_TIMEOUT, RATE_LIMIT, удален вызов clean_blocked_ips в security_middleware
+
+"""
+Avito Management Server / Сервер управления Avito
+
+Flask-based web server for managing advertisement photo processing and generation.
+Веб-сервер на основе Flask для управления обработкой и генерацией фотографий объявлений.
+
+Features / Функции:
+- Manager management (create, rename, delete) / Управление менеджерами (создание, переименование, удаление)
+- Photo upload and storage / Загрузка и хранение фотографий
+- Image uniquification and watermarking / Уникализация изображений и добавление водяных знаков
+- Ready advertisement link generation / Генерация ссылок на готовые объявления
+- Security middleware / Промежуточное ПО для безопасности
+"""
 
 import time
 import threading
@@ -10,25 +27,37 @@ import shutil
 from modules.utils import get_timestamp, log_message, is_suspicious_request, allowed_file
 from modules.ad_processing import process_and_generate, PHOTOS_PER_AD
 
-# ===== НАСТРОЙКИ =====
-CHECK_INTERVAL = 30
-BASE_DIR = os.path.dirname(__file__)
-MANAGERS_DIR = os.path.join(BASE_DIR, 'data', 'managers')
-LOG_FILE = os.path.join(BASE_DIR, 'logs', 'main.txt')
-BASE_SERVER_URL = "http://109.172.39.225:5000/"
-CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')
+# ===== SETTINGS / НАСТРОЙКИ =====
+CHECK_INTERVAL = 30  # Interval for periodic checks in seconds / Интервал периодических проверок в секундах
+BASE_DIR = os.path.dirname(__file__)  # Base server directory / Базовая директория сервера
+MANAGERS_DIR = os.path.join(BASE_DIR, 'data', 'managers')  # Managers data directory / Директория данных менеджеров
+LOG_FILE = os.path.join(BASE_DIR, 'logs', 'main.txt')  # Main log file path / Путь к основному лог-файлу
+BASE_SERVER_URL = "http://109.172.39.225:5000/"  # Public server URL / Публичный URL сервера
+CLIENT_DIR = os.path.join(BASE_DIR, '..', 'client')  # Client files directory / Директория файлов клиента
 
-# ===== БЕЗОПАСНОСТЬ =====
-ALLOWED_USER_AGENTS = ['Mozilla/5.0', 'Chrome/', 'Safari/', 'Firefox/', 'Edge/']
-# ======================
+# ===== SECURITY / БЕЗОПАСНОСТЬ =====
+ALLOWED_USER_AGENTS = ['Mozilla/5.0', 'Chrome/', 'Safari/', 'Firefox/', 'Edge/']  # Allowed browser signatures / Разрешённые подписи браузеров
+# ==================================
 
+# Initialize Flask application / Инициализация Flask приложения
 app = Flask(__name__)
 logging.basicConfig(level=logging.WARNING)
 
 @app.before_request
 def security_middleware():
+    """
+    Security middleware that runs before each request / Промежуточное ПО безопасности, выполняемое перед каждым запросом
+    
+    Performs / Выполняет:
+    - Suspicious request detection / Обнаружение подозрительных запросов
+    - CORS headers setup for API routes / Настройка CORS заголовков для API маршрутов
+    - OPTIONS request handling / Обработка OPTIONS запросов
+    """
+    # Block suspicious requests / Блокировать подозрительные запросы
     if is_suspicious_request():
         abort(403)
+    
+    # Setup CORS for API routes / Настроить CORS для API маршрутов
     if request.path.startswith('/api/'):
         response = Response()
         response.headers['Access-Control-Allow-Origin'] = '*'
@@ -57,6 +86,15 @@ def count_ready():
 
 @app.errorhandler(BadRequest)
 def handle_bad_request(e):
+    """
+    Error handler for malformed HTTP requests / Обработчик ошибок для некорректных HTTP-запросов
+    
+    Args:
+        e: BadRequest exception / Исключение BadRequest
+    
+    Returns:
+        tuple: Error message and 400 status code / Сообщение об ошибке и код статуса 400
+    """
     client_ip = request.remote_addr
     log_message(f"🚫 Плохой HTTP-запрос от {client_ip} - игнорируем")
     return 'Bad Request', 400
@@ -109,6 +147,16 @@ def list_managers():
 
 @app.route('/api/upload_logo', methods=['POST'])
 def upload_logo():
+    """
+    Upload logo image for a manager / Загрузить изображение логотипа для менеджера
+    
+    Form data / Данные формы:
+        manager: Manager name / Имя менеджера
+        logo: Logo file (jpg, jpeg, png) / Файл логотипа (jpg, jpeg, png)
+    
+    Returns:
+        JSON: Success status or error / Статус успеха или ошибка
+    """
     manager = request.form.get('manager')
     if not manager:
         return jsonify({'error': 'Manager required'}), 400
@@ -126,15 +174,32 @@ def upload_logo():
 
 @app.route('/api/create-manager', methods=['POST'])
 def create_manager():
+    """
+    Create a new manager with directory structure / Создать нового менеджера со структурой директорий
+    
+    JSON body:
+        name: Manager name / Имя менеджера
+    
+    Creates directories / Создаёт директории:
+    - photo_cache: For uploaded source photos / Для загруженных исходных фотографий
+    - ready_photos: For processed photos / Для обработанных фотографий
+    - img: For logo / Для логотипа
+    
+    Returns:
+        JSON: Success status or error / Статус успеха или ошибка
+    """
     try:
         name = request.json.get('name')
         if not name:
             return jsonify({'error': 'Name required'}), 400
+        
+        # Create manager directory structure / Создать структуру директорий менеджера
         manager_path = os.path.join(MANAGERS_DIR, name)
         os.makedirs(manager_path, exist_ok=True)
         os.makedirs(os.path.join(manager_path, 'photo_cache'), exist_ok=True)
         os.makedirs(os.path.join(manager_path, 'ready_photos'), exist_ok=True)
-        os.makedirs(os.path.join(manager_path, 'img'), exist_ok=True)  # Новая директория для логотипа
+        os.makedirs(os.path.join(manager_path, 'img'), exist_ok=True)  # Logo directory / Директория для логотипа
+        
         log_message(f"📁 Создана папка для менеджера '{name}'")
         return jsonify({'success': True})
     except Exception as e:
@@ -142,17 +207,31 @@ def create_manager():
 
 @app.route('/api/rename-manager', methods=['POST'])
 def rename_manager():
+    """
+    Rename an existing manager / Переименовать существующего менеджера
+    
+    JSON body:
+        old_name: Current manager name / Текущее имя менеджера
+        new_name: New manager name / Новое имя менеджера
+    
+    Returns:
+        JSON: Success status or error / Статус успеха или ошибка
+    """
     try:
         old_name = request.json.get('old_name')
         new_name = request.json.get('new_name')
         if not old_name or not new_name:
             return jsonify({'error': 'Old and new names required'}), 400
+        
         old_path = os.path.join(MANAGERS_DIR, old_name)
         new_path = os.path.join(MANAGERS_DIR, new_name)
+        
+        # Validate paths / Проверить пути
         if not os.path.exists(old_path):
             return jsonify({'error': 'Manager not found'}), 404
         if os.path.exists(new_path):
             return jsonify({'error': 'New name already exists'}), 400
+        
         os.rename(old_path, new_path)
         log_message(f"🔄 Менеджер '{old_name}' переименован в '{new_name}'")
         return jsonify({'success': True})
@@ -161,13 +240,25 @@ def rename_manager():
 
 @app.route('/api/delete-manager', methods=['POST'])
 def delete_manager():
+    """
+    Delete a manager and all associated data / Удалить менеджера и все связанные данные
+    
+    JSON body:
+        name: Manager name to delete / Имя менеджера для удаления
+    
+    Returns:
+        JSON: Success status or error / Статус успеха или ошибка
+    """
     try:
         name = request.json.get('name')
         if not name:
             return jsonify({'error': 'Name required'}), 400
+        
         path = os.path.join(MANAGERS_DIR, name)
         if not os.path.exists(path):
             return jsonify({'error': 'Manager not found'}), 404
+        
+        # Remove entire manager directory / Удалить всю директорию менеджера
         shutil.rmtree(path)
         log_message(f"🗑️ Менеджер '{name}' удален")
         return jsonify({'success': True})
@@ -216,16 +307,32 @@ def delete_item():
 
 @app.route('/api/create-folder-structure', methods=['POST'])
 def create_folder_structure():
+    """
+    Create folder structure for photo positions / Создать структуру папок для позиций фотографий
+    
+    JSON body:
+        manager: Manager name / Имя менеджера
+        category: Category name / Имя категории
+        positions: List of position folder names / Список имён папок позиций
+    
+    Returns:
+        JSON: Success status with created folders or error / Статус успеха с созданными папками или ошибка
+    """
     data = request.json
     manager = data.get('manager')
     category = data.get('category')
     positions = data.get('positions', [])
+    
     if not manager or not category:
         return jsonify({'error': 'Manager and category required'}), 400
+    
     try:
+        # Create category directory / Создать директорию категории
         cache_dir = os.path.join(MANAGERS_DIR, manager, 'photo_cache')
         category_path = os.path.join(cache_dir, category)
         os.makedirs(category_path, exist_ok=True)
+        
+        # Create position folders / Создать папки позиций
         created_folders = []
         for pos in positions:
             pos_path = os.path.join(category_path, pos)
@@ -238,13 +345,30 @@ def create_folder_structure():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_files():
+    """
+    Upload multiple photo files to a specific position / Загрузить несколько фото-файлов в определённую позицию
+    
+    Form data / Данные формы:
+        manager: Manager name / Имя менеджера
+        category: Category name / Имя категории
+        position: Position folder name / Имя папки позиции
+        files: Multiple file uploads / Несколько загружаемых файлов
+    
+    Returns:
+        JSON: Success status with uploaded filenames or error / Статус успеха с именами загруженных файлов или ошибка
+    """
     manager = request.form.get('manager')
     category = request.form.get('category')
     position = request.form.get('position')
+    
     if not manager or not category or not position:
         return jsonify({'error': 'Manager, category and position required'}), 400
+    
+    # Create target directory / Создать целевую директорию
     base_path = os.path.join(MANAGERS_DIR, manager, 'photo_cache', category, position)
     os.makedirs(base_path, exist_ok=True)
+    
+    # Upload files / Загрузить файлы
     uploaded = []
     for file in request.files.getlist('files'):
         if file and allowed_file(file.filename):
@@ -288,6 +412,8 @@ def static_files(filename):
     abort(404)
 
 if __name__ == "__main__":
+    # Create managers directory if it doesn't exist / Создать директорию менеджеров если её не существует
     os.makedirs(MANAGERS_DIR, exist_ok=True)
     log_message("⏳ Сервер запущен")
+    # Запустить Flask сервер
     app.run(host='0.0.0.0', port=5000, threaded=True)

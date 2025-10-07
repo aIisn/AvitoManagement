@@ -858,7 +858,7 @@ def index():
     
     # Валидируем сессию / Validate session
     from modules.auth_middleware import validate_session_token
-    is_valid, session_data = validate_session_token(session_token)
+    is_valid, session_data = validate_session_token(session_token, update_activity=False)
     
     if not is_valid:
         # Перенаправляем на страницу авторизации / Redirect to auth page
@@ -893,13 +893,15 @@ if __name__ == "__main__":
     if redis_initialized:
         log_message("✅ Redis подключен и готов к работе")
     else:
-        log_message("⚠️ Redis недоступен, используется файловое хранилище сессий")
+        log_message("❌ Redis недоступен - сервер не может работать без Redis")
+        log_message("🔧 Установите Redis: sudo apt install redis-server && sudo systemctl start redis-server")
+        exit(1)
     
     # Запускаем фоновую задачу очистки сессий / Start background session cleanup task
     cleanup_thread = threading.Thread(target=cleanup_sessions_periodically, daemon=True)
     cleanup_thread.start()
     
-    log_message("⏳ Сервер запущен с защитой авторизации и Redis поддержкой")
+    log_message("⏳ Сервер запущен с Redis-только сессиями и защитой авторизации")
     
     try:
         # Запустить Flask сервер / Start Flask server

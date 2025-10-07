@@ -298,9 +298,10 @@ function handleLoginSubmit(e) {
             }
             
             // Редирект на основное приложение / Redirect to main app
+            // Уменьшенная задержка для лучшего UX / Reduced delay for better UX
             setTimeout(() => {
                 window.location.href = '/';
-            }, 1500);
+            }, 500);
         })
         .catch(error => {
             showNotification('Ошибка авторизации: ' + error.message, 'error');

@@ -26,39 +26,13 @@ SESSION_CONFIG = {
     'max_sessions_per_user': 3,   # Максимум сессий на пользователя / Max sessions per user
 }
 
-# Путь к файлу сессий / Sessions file path
-SESSIONS_FILE = os.path.join(os.path.dirname(__file__), '..', 'data', 'users', 'sessions.json')
+# Redis-only session storage - no file storage needed
 
 # ============================================================================
 # УТИЛИТЫ / UTILITIES
 # ============================================================================
 
-def ensure_sessions_file():
-    """Создает файл сессий если он не существует / Creates sessions file if it doesn't exist"""
-    os.makedirs(os.path.dirname(SESSIONS_FILE), exist_ok=True)
-    if not os.path.exists(SESSIONS_FILE):
-        with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
-            json.dump({}, f, ensure_ascii=False, indent=2)
-
-def load_sessions() -> Dict:
-    """Загружает сессии из файла / Loads sessions from file"""
-    ensure_sessions_file()
-    try:
-        with open(SESSIONS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-def save_sessions(sessions: Dict) -> bool:
-    """Сохраняет сессии в файл / Saves sessions to file"""
-    try:
-        ensure_sessions_file()
-        with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(sessions, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        logging.error(f"Ошибка сохранения сессий: {e}")
-        return False
+# File-based session storage functions removed - using Redis only
 
 def generate_session_token() -> str:
     """Генерирует токен сессии / Generates session token"""
@@ -90,6 +64,11 @@ def create_user_session(user_id: str, username: str, email: str) -> Tuple[str, D
         Tuple[str, Dict]: (токен сессии, данные сессии) / (session token, session data)
     """
     try:
+        # Check if Redis is available / Проверяем доступность Redis
+        if not redis_manager.is_available():
+            logging.error("Redis недоступен - невозможно создать сессию")
+            return None, None
+        
         # Создаем новую сессию / Create new session
         session_token = generate_session_token()
         current_time = datetime.now().isoformat()
@@ -104,42 +83,15 @@ def create_user_session(user_id: str, username: str, email: str) -> Tuple[str, D
             'user_agent': request.headers.get('User-Agent', 'unknown') if request else 'unknown'
         }
         
-        # Try Redis first, fallback to file storage / Пробуем Redis сначала, fallback на файловое хранилище
-        if redis_manager.is_available():
-            # Clean old sessions for user in Redis / Очищаем старые сессии пользователя в Redis
-            cleanup_user_sessions_redis(user_id)
-            
-            # Store in Redis / Сохраняем в Redis
-            if store_session_redis(session_token, session_data):
-                logging.info(f"Создана сессия в Redis для пользователя {username} ({user_id})")
-                return session_token, session_data
+        # Clean old sessions for user in Redis / Очищаем старые сессии пользователя в Redis
+        cleanup_user_sessions_redis(user_id)
         
-        # Fallback to file storage / Fallback на файловое хранилище
-        sessions = load_sessions()
-        
-        # Очищаем старые сессии пользователя / Clean old user sessions
-        if user_id in sessions:
-            # Удаляем истекшие сессии / Remove expired sessions
-            sessions[user_id] = {
-                session_id: session_data for session_id, session_data in sessions[user_id].items()
-                if not is_session_expired(session_data['created_at'])
-            }
-            
-            # Ограничиваем количество сессий / Limit number of sessions
-            if len(sessions[user_id]) >= SESSION_CONFIG['max_sessions_per_user']:
-                # Удаляем самую старую сессию / Remove oldest session
-                oldest_session = min(sessions[user_id].items(), key=lambda x: x[1]['created_at'])
-                del sessions[user_id][oldest_session[0]]
-        
-        if user_id not in sessions:
-            sessions[user_id] = {}
-        
-        sessions[user_id][session_token] = session_data
-        
-        if save_sessions(sessions):
-            logging.info(f"Создана сессия в файле для пользователя {username} ({user_id})")
+        # Store in Redis / Сохраняем в Redis
+        if store_session_redis(session_token, session_data):
+            logging.info(f"Создана сессия в Redis для пользователя {username} ({user_id})")
             return session_token, session_data
         else:
+            logging.error(f"Не удалось сохранить сессию в Redis для пользователя {username}")
             return None, None
             
     except Exception as e:
@@ -194,12 +146,13 @@ def cleanup_user_sessions_redis(user_id: str) -> bool:
         logging.error(f"Ошибка очистки сессий пользователя в Redis: {e}")
         return False
 
-def validate_session_token(session_token: str) -> Tuple[bool, Optional[Dict]]:
+def validate_session_token(session_token: str, update_activity: bool = True) -> Tuple[bool, Optional[Dict]]:
     """
     Валидирует токен сессии / Validates session token
     
     Args:
         session_token: Токен сессии / Session token
+        update_activity: Обновлять ли время последней активности / Whether to update last activity time
     
     Returns:
         Tuple[bool, Optional[Dict]]: (валидность, данные сессии) / (validity, session data)
@@ -208,42 +161,26 @@ def validate_session_token(session_token: str) -> Tuple[bool, Optional[Dict]]:
         if not session_token:
             return False, None
         
-        # Try Redis first / Пробуем Redis сначала
-        if redis_manager.is_available():
-            session_data = get_session_redis(session_token)
-            if session_data:
-                # Проверяем срок действия / Check expiry
-                if is_session_expired(session_data['created_at']):
-                    # Удаляем истекшую сессию / Remove expired session
-                    delete_session_redis(session_token)
-                    return False, None
-                
-                # Обновляем время последней активности / Update last activity
+        # Check if Redis is available / Проверяем доступность Redis
+        if not redis_manager.is_available():
+            logging.error("Redis недоступен - невозможно валидировать сессию")
+            return False, None
+        
+        # Get session from Redis / Получаем сессию из Redis
+        session_data = get_session_redis(session_token)
+        if session_data:
+            # Проверяем срок действия / Check expiry
+            if is_session_expired(session_data['created_at']):
+                # Удаляем истекшую сессию / Remove expired session
+                delete_session_redis(session_token)
+                return False, None
+            
+            # Обновляем время последней активности только если требуется / Update last activity only if required
+            if update_activity:
                 session_data['last_activity'] = datetime.now().isoformat()
                 store_session_redis(session_token, session_data)
-                
-                return True, session_data
-        
-        # Fallback to file storage / Fallback на файловое хранилище
-        sessions = load_sessions()
-        
-        # Ищем сессию по токену / Find session by token
-        for user_id, user_sessions in sessions.items():
-            if session_token in user_sessions:
-                session_data = user_sessions[session_token]
-                
-                # Проверяем срок действия / Check expiry
-                if is_session_expired(session_data['created_at']):
-                    # Удаляем истекшую сессию / Remove expired session
-                    del user_sessions[session_token]
-                    save_sessions(sessions)
-                    return False, None
-                
-                # Обновляем время последней активности / Update last activity
-                session_data['last_activity'] = datetime.now().isoformat()
-                save_sessions(sessions)
-                
-                return True, session_data
+            
+            return True, session_data
         
         return False, None
         
@@ -262,21 +199,15 @@ def destroy_session(session_token: str) -> bool:
         bool: Успех операции / Operation success
     """
     try:
-        # Try Redis first / Пробуем Redis сначала
-        if redis_manager.is_available():
-            if delete_session_redis(session_token):
-                logging.info(f"Сессия {session_token} уничтожена в Redis")
-                return True
+        # Check if Redis is available / Проверяем доступность Redis
+        if not redis_manager.is_available():
+            logging.error("Redis недоступен - невозможно уничтожить сессию")
+            return False
         
-        # Fallback to file storage / Fallback на файловое хранилище
-        sessions = load_sessions()
-        
-        for user_id, user_sessions in sessions.items():
-            if session_token in user_sessions:
-                del user_sessions[session_token]
-                save_sessions(sessions)
-                logging.info(f"Сессия {session_token} уничтожена в файле")
-                return True
+        # Delete from Redis / Удаляем из Redis
+        if delete_session_redis(session_token):
+            logging.info(f"Сессия {session_token} уничтожена в Redis")
+            return True
         
         return False
         
@@ -295,19 +226,14 @@ def destroy_all_user_sessions(user_id: str) -> bool:
         bool: Успех операции / Operation success
     """
     try:
-        # Try Redis first / Пробуем Redis сначала
-        if redis_manager.is_available():
-            if delete_user_sessions_redis(user_id):
-                logging.info(f"Все сессии пользователя {user_id} уничтожены в Redis")
-                return True
+        # Check if Redis is available / Проверяем доступность Redis
+        if not redis_manager.is_available():
+            logging.error("Redis недоступен - невозможно уничтожить сессии пользователя")
+            return False
         
-        # Fallback to file storage / Fallback на файловое хранилище
-        sessions = load_sessions()
-        
-        if user_id in sessions:
-            del sessions[user_id]
-            save_sessions(sessions)
-            logging.info(f"Все сессии пользователя {user_id} уничтожены в файле")
+        # Delete all user sessions from Redis / Удаляем все сессии пользователя из Redis
+        if delete_user_sessions_redis(user_id):
+            logging.info(f"Все сессии пользователя {user_id} уничтожены в Redis")
             return True
         
         return False
@@ -324,28 +250,38 @@ def cleanup_expired_sessions() -> int:
         int: Количество удаленных сессий / Number of removed sessions
     """
     try:
-        sessions = load_sessions()
+        # Check if Redis is available / Проверяем доступность Redis
+        if not redis_manager.is_available():
+            logging.warning("Redis недоступен - пропуск очистки сессий")
+            return 0
+        
+        # Redis automatically handles TTL expiration, but we can manually clean up
+        # Redis автоматически обрабатывает истечение TTL, но мы можем очистить вручную
+        from modules.redis_manager import redis_manager
+        client = redis_manager.get_client()
+        if not client:
+            return 0
+        
         removed_count = 0
         
-        for user_id in list(sessions.keys()):
-            user_sessions = sessions[user_id]
-            expired_sessions = []
-            
-            for session_id, session_data in user_sessions.items():
-                if is_session_expired(session_data['created_at']):
-                    expired_sessions.append(session_id)
-            
-            for session_id in expired_sessions:
-                del user_sessions[session_id]
+        # Get all session keys / Получаем все ключи сессий
+        session_keys = client.keys("avito:session:*")
+        
+        for key in session_keys:
+            try:
+                session_data = client.get(key)
+                if session_data:
+                    data = json.loads(session_data)
+                    if is_session_expired(data['created_at']):
+                        client.delete(key)
+                        removed_count += 1
+            except (json.JSONDecodeError, KeyError):
+                # Invalid session data, remove it / Неверные данные сессии, удаляем
+                client.delete(key)
                 removed_count += 1
-            
-            # Удаляем пользователя если у него нет активных сессий / Remove user if no active sessions
-            if not user_sessions:
-                del sessions[user_id]
         
         if removed_count > 0:
-            save_sessions(sessions)
-            logging.info(f"Очищено {removed_count} истекших сессий")
+            logging.info(f"Очищено {removed_count} истекших сессий из Redis")
         
         return removed_count
         
@@ -463,23 +399,42 @@ def api_get_user_sessions(user_id: str) -> Tuple[bool, str, list]:
         Tuple[bool, str, list]: (успех, сообщение, список сессий) / (success, message, sessions list)
     """
     try:
-        sessions = load_sessions()
+        # Check if Redis is available / Проверяем доступность Redis
+        if not redis_manager.is_available():
+            return False, "Redis недоступен - невозможно получить сессии", []
         
-        if user_id not in sessions:
+        from modules.redis_manager import redis_manager
+        client = redis_manager.get_client()
+        if not client:
+            return False, "Redis клиент недоступен", []
+        
+        user_sessions_key = f"avito:user_sessions:{user_id}"
+        session_tokens = client.smembers(user_sessions_key)
+        
+        if not session_tokens:
             return True, "Активных сессий не найдено", []
         
         user_sessions = []
-        for session_id, session_data in sessions[user_id].items():
-            if not is_session_expired(session_data['created_at']):
-                # Скрываем чувствительные данные / Hide sensitive data
-                safe_session = {
-                    'session_id': session_id[:8] + '...',  # Показываем только часть токена / Show only part of token
-                    'created_at': session_data['created_at'],
-                    'last_activity': session_data['last_activity'],
-                    'ip_address': session_data['ip_address'],
-                    'user_agent': session_data['user_agent'][:50] + '...' if len(session_data['user_agent']) > 50 else session_data['user_agent']
-                }
-                user_sessions.append(safe_session)
+        for token in session_tokens:
+            session_key = f"avito:session:{token}"
+            session_data = client.get(session_key)
+            
+            if session_data:
+                try:
+                    data = json.loads(session_data)
+                    if not is_session_expired(data['created_at']):
+                        # Скрываем чувствительные данные / Hide sensitive data
+                        safe_session = {
+                            'session_id': token[:8] + '...',  # Показываем только часть токена / Show only part of token
+                            'created_at': data['created_at'],
+                            'last_activity': data['last_activity'],
+                            'ip_address': data['ip_address'],
+                            'user_agent': data['user_agent'][:50] + '...' if len(data['user_agent']) > 50 else data['user_agent']
+                        }
+                        user_sessions.append(safe_session)
+                except (json.JSONDecodeError, KeyError):
+                    # Invalid session data, skip / Неверные данные сессии, пропускаем
+                    continue
         
         return True, f"Найдено {len(user_sessions)} активных сессий", user_sessions
         

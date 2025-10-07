@@ -156,6 +156,35 @@ def store_session_redis(session_token: str, session_data: Dict, ttl: int = None)
             user_sessions_key = f"{REDIS_PREFIXES['user_sessions']}{user_id}"
             client.sadd(user_sessions_key, session_token)
             client.expire(user_sessions_key, ttl)
+            
+            # Limit number of sessions per user / Ограничиваем количество сессий на пользователя
+            from modules.auth_middleware import SESSION_CONFIG
+            max_sessions = SESSION_CONFIG.get('max_sessions_per_user', 3)
+            current_sessions = client.scard(user_sessions_key)
+            
+            if current_sessions > max_sessions:
+                # Get oldest sessions and remove them / Получаем старые сессии и удаляем их
+                session_tokens = list(client.smembers(user_sessions_key))
+                session_ages = []
+                
+                for token in session_tokens:
+                    session_key = f"{REDIS_PREFIXES['session']}{token}"
+                    session_data = client.get(session_key)
+                    if session_data:
+                        try:
+                            data = json.loads(session_data)
+                            session_ages.append((token, data.get('created_at', '')))
+                        except (json.JSONDecodeError, KeyError):
+                            session_ages.append((token, ''))
+                
+                # Sort by creation time and remove oldest / Сортируем по времени создания и удаляем старые
+                session_ages.sort(key=lambda x: x[1])
+                sessions_to_remove = session_ages[:-max_sessions]
+                
+                for token, _ in sessions_to_remove:
+                    session_key = f"{REDIS_PREFIXES['session']}{token}"
+                    client.delete(session_key)
+                    client.srem(user_sessions_key, token)
         
         return True
     except Exception as e:

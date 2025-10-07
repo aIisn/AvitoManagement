@@ -165,9 +165,17 @@ export function closeUniquifyModal() {
 // Функция рендеринга таблицы с результатами уникализации
 // Function to render table with uniquification results
 export function renderResultsTable(results, manager) {
+    // Удаляем предыдущую таблицу результатов, если она существует
+    // Remove previous results table if it exists
+    const existingTable = document.getElementById(`results-table-${manager}`);
+    if (existingTable) {
+        existingTable.remove();
+    }
+    
     // Создаём секцию для таблицы / Create section for table
     const tableSection = document.createElement('div');
     tableSection.classList.add('section');
+    tableSection.id = `results-table-${manager}`;
     tableSection.innerHTML = '<h2>Результаты уникализации</h2>';
     
     // Создаём таблицу / Create table
@@ -566,6 +574,87 @@ export function openFileInput(position, manager) {
     const tile = document.querySelector(`#position-row-${manager} [data-position="${position}"]`);
     const fileInput = tile.querySelector('.file-input');
     fileInput.click(); // Программно открываем диалог / Programmatically open dialog
+}
+
+// ============================================================================
+// ФУНКЦИИ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ / MAIN PAGE FUNCTIONS
+// ============================================================================
+
+// Функция рендеринга карточек менеджеров на главной странице
+// Function to render manager cards on main page
+export function renderManagerCards(managers) {
+    const container = document.getElementById('managers-grid-main');
+    if (!container) {
+        console.error('Контейнер managers-grid-main не найден');
+        return;
+    }
+    
+    // Очищаем контейнер / Clear container
+    container.innerHTML = '';
+    
+    // Если менеджеров нет, показываем сообщение / If no managers, show message
+    if (!managers || managers.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users" style="font-size: 64px; color: #cbd5e0; margin-bottom: 20px;"></i>
+                <h3 style="color: #718096;">Менеджеры не найдены</h3>
+                <p style="color: #a0aec0;">Перейдите на вкладку "Уникализация фото" для создания менеджера</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Создаём карточку для каждого менеджера / Create card for each manager
+    managers.forEach((manager, index) => {
+        const card = document.createElement('div');
+        card.classList.add('manager-card');
+        card.style.animationDelay = `${index * 0.1}s`;
+        
+        // Генерируем случайный градиент для аватара / Generate random gradient for avatar
+        const gradients = [
+            'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+            'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+            'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+            'linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)'
+        ];
+        const gradient = gradients[index % gradients.length];
+        
+        card.innerHTML = `
+            <div class="manager-card-avatar" style="background: ${gradient};">
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div class="manager-card-content">
+                <h3 class="manager-card-title">${manager}</h3>
+                <div class="manager-card-balance">
+                    <i class="fas fa-wallet"></i>
+                    <span>Баланс Avito: <strong>Загрузка...</strong></span>
+                </div>
+            </div>
+            <div class="manager-card-actions">
+                <button class="manager-card-btn" title="Управление">
+                    <i class="fas fa-cog"></i> Управление
+                </button>
+            </div>
+        `;
+        
+        // Добавляем обработчик клика для перехода к управлению менеджером
+        // Add click handler to navigate to manager management
+        card.addEventListener('click', () => {
+            // Переключаемся на вкладку уникализации / Switch to uniquification tab
+            document.querySelector('.sidebar-item[data-tab="photo-uniquification"]').click();
+            
+            // Небольшая задержка для корректной загрузки / Small delay for proper loading
+            setTimeout(() => {
+                loadManagerContent(manager);
+            }, 100);
+        });
+        
+        container.appendChild(card);
+    });
 }
 
 // ============================================================================

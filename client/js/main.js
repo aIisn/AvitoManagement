@@ -11,13 +11,14 @@ import { currentManager } from './state.js';
 
 // Импорт API функций / Import API functions
 import { 
-    fetchManagers,      // Загрузка списка менеджеров / Fetch managers list
-    fetchLogs,          // Загрузка логов / Fetch logs
-    createManager,      // Создание менеджера / Create manager
-    uploadLogo,         // Загрузка логотипа / Upload logo
-    startUniquify,      // Запуск уникализации / Start uniquification
-    saveManagerEdit,    // Сохранение редактирования / Save manager edit
-    deleteManagerConfirm // Подтверждение удаления / Delete confirmation
+    fetchManagers,           // Загрузка списка менеджеров / Fetch managers list
+    fetchManagersForMain,    // Загрузка менеджеров для главной страницы / Fetch managers for main page
+    fetchLogs,               // Загрузка логов / Fetch logs
+    createManager,           // Создание менеджера / Create manager
+    uploadLogo,              // Загрузка логотипа / Upload logo
+    startUniquify,           // Запуск уникализации / Start uniquification
+    saveManagerEdit,         // Сохранение редактирования / Save manager edit
+    deleteManagerConfirm     // Подтверждение удаления / Delete confirmation
 } from './api.js';
 
 // Импорт UI функций / Import UI functions
@@ -70,24 +71,39 @@ window.onclick = function(event) {
     }
 }
 
-// Обработчик вкладок / Tab handler
+// Обработчик навигации сайдбара / Sidebar navigation handler
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.tab-link').forEach(tab => {
-        tab.addEventListener('click', function() {
-            // Убираем активный класс со всех вкладок и содержимого
-            // Remove active class from all tabs and content
-            document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+    // Загружаем менеджеров для главной страницы при первой загрузке
+    // Load managers for main page on initial load
+    fetchManagersForMain();
+    
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.addEventListener('click', function() {
+            // Убираем активный класс со всех пунктов меню и содержимого
+            // Remove active class from all menu items and content
+            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
-            // Добавляем активный класс на выбранную вкладку
-            // Add active class to selected tab
+            // Добавляем активный класс на выбранный пункт меню
+            // Add active class to selected menu item
             this.classList.add('active');
-            document.getElementById(this.dataset.tab).classList.add('active');
+            const tabId = this.dataset.tab;
+            const tabContent = document.getElementById(tabId);
+            
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
             
             // При переходе на вкладку уникализации загружаем менеджеров
             // When switching to uniquification tab, load managers
-            if (this.dataset.tab === 'photo-uniquification') {
+            if (tabId === 'photo-uniquification') {
                 fetchManagers();
+            }
+            
+            // При переходе на главную страницу обновляем список менеджеров
+            // When switching to main page, refresh managers list
+            if (tabId === 'main') {
+                fetchManagersForMain();
             }
         });
     });

@@ -1,28 +1,160 @@
 /* filename="styles.css" */
 /* Добавлены стили для кнопки уникализировать, таблицы, модального */
 
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(to right, #FF8C42 0%, #C8A2C8 100%);
     margin: 0;
-    padding: 20px;
+    padding: 0;
     min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Вертикальное меню слева */
+.sidebar {
+    position: fixed;
+    left: 15px;
+    top: 15px;
+    width: 80px;
+    height: calc(100vh - 30px);
+    background: linear-gradient(50deg, 
+                rgba(255, 255, 255, 0.2) 20%, 
+                rgba(255, 255, 255, 0.6) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    z-index: 1000;
+}
+
+.sidebar-header {
+    margin-bottom: 40px;
+}
+
+.user-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.user-avatar:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-menu {
+    list-style: none;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-item {
+    width: 100%;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s ease;
+    color: #718096;
+    font-size: 24px;
+}
+
+.sidebar-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 0;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    border-radius: 0 4px 4px 0;
+    transition: height 0.3s ease;
+}
+
+.sidebar-item:hover {
+    color: #FF8C42;
+    background: rgba(255, 140, 66, 0.15);
+    border-radius: 12px;
+}
+
+.sidebar-item:hover::before {
+    height: 40px;
+}
+
+.sidebar-item.active {
+    color: #FF8C42;
+    background: rgba(255, 140, 66, 0.25);
+    border-radius: 12px;
+}
+
+.sidebar-item.active::before {
+    height: 40px;
+}
+
+.sidebar-item i {
+    transition: transform 0.3s ease;
+}
+
+.sidebar-item:hover i {
+    transform: scale(1.2);
+}
+
+/* Основной контейнер */
+.main-wrapper {
+    margin-left: 110px;
+    min-height: 100vh;
+    padding: 20px;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    background: white;
+    background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.4) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     padding: 30px;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .section {
     margin-bottom: 40px;
     padding: 20px;
-    background: #f8f9fa;
-    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 h1, h2 {
@@ -35,33 +167,17 @@ h1 {
     color: #4a5568;
 }
 
-.tabs {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 30px 0;
-    display: flex;
-    background: white;
-    border-radius: 12px;
-    padding: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-
-.tab-link {
-    padding: 12px 24px;
-    cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    font-weight: 500;
-}
-
-.tab-link.active {
-    background: #007bff;
-    color: white;
+h2 {
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
 }
 
 .tab-content {
     display: none;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn 0.4s ease;
 }
 
 .tab-content.active {
@@ -69,10 +185,14 @@ h1 {
 }
 
 .folder-setup {
-    background: white;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .input-group {
@@ -98,7 +218,8 @@ h1 {
 
 .input-group input:focus {
     outline: none;
-    border-color: #007bff;
+    border-color: #FF8C42;
+    box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.1);
 }
 
 .input-group small {
@@ -136,14 +257,14 @@ h1 {
 }
 
 .position-tile:hover {
-    border-color: #007bff;
+    border-color: #FF8C42;
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,123,255,0.2);
+    box-shadow: 0 5px 15px rgba(255, 140, 66, 0.3);
 }
 
 .position-tile.active {
-    border-color: #007bff;
-    background: #f0f8ff;
+    border-color: #FF8C42;
+    background: rgba(255, 140, 66, 0.05);
 }
 
 .delete-position {
@@ -202,7 +323,10 @@ h1 {
 .position-number {
     font-size: 28px;
     font-weight: bold;
-    color: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin-bottom: 5px;
 }
 
@@ -240,12 +364,12 @@ h1 {
 }
 
 .thumbnail-container::-webkit-scrollbar-thumb {
-    background: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
     border-radius: 4px;
 }
 
 .thumbnail-container::-webkit-scrollbar-thumb:hover {
-    background: #0056b3;
+    background: linear-gradient(135deg, #e07938 0%, #b390b3 100%);
 }
 
 .thumbnail {
@@ -269,20 +393,23 @@ h1 {
 
 .upload-button {
     margin-top: 10px;
-    background: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
     color: white;
     border: none;
     padding: 10px;
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
-    transition: background 0.3s ease;
+    font-weight: 500;
+    transition: all 0.3s ease;
     width: 100%;
     text-align: center;
+    box-shadow: 0 2px 10px rgba(255, 140, 66, 0.3);
 }
 
 .upload-button:hover {
-    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 140, 66, 0.4);
 }
 
 .button-group {
@@ -309,23 +436,27 @@ h1 {
 }
 
 .btn-primary {
-    background: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
     color: white;
     border: none;
     padding: 12px 24px;
     border-radius: 8px;
     cursor: pointer;
     font-size: 16px;
-    transition: background 0.3s ease;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 140, 66, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 140, 66, 0.4);
 }
 
 .btn-primary:disabled {
     background: #6c757d;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
 .btn-secondary {
@@ -372,13 +503,17 @@ h1 {
 }
 
 .modal-content {
-    background-color: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     margin: 10% auto;
     padding: 30px;
-    border-radius: 12px;
+    border-radius: 20px;
     width: 90%;
     max-width: 500px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     animation: slideIn 0.3s ease;
     position: relative;
     max-height: 80vh;
@@ -395,15 +530,21 @@ h1 {
 .modal-body {
     margin: 20px 0;
     padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
     font-size: 16px;
     line-height: 1.5;
 }
 
 .modal-body .highlight {
-    color: #007bff;
-    font-weight: 500;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
 }
 
 .modal-actions {
@@ -416,8 +557,11 @@ h1 {
 .progress-container {
     margin-top: 20px;
     padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
     text-align: center;
 }
 
@@ -432,7 +576,7 @@ h1 {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #007bff, #28a745);
+    background: linear-gradient(90deg, #FF8C42, #C8A2C8);
     width: 0%;
     transition: width 0.3s ease;
     border-radius: 4px;
@@ -457,6 +601,7 @@ pre {
 }
 
 .grid {
+    margin-bottom: 20px;
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
@@ -464,15 +609,17 @@ pre {
 }
 
 .card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     padding: 15px;
     text-align: center;
     cursor: pointer;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     animation: fadeInUp 0.5s ease;
-    border: 2px solid transparent;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     position: relative;
     overflow: hidden;
     flex: 0 0 calc(25% - 15px);
@@ -507,9 +654,6 @@ pre {
     font-weight: 500;
     color: #4a5568;
     word-wrap: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
     min-height: 40px;
@@ -551,14 +695,18 @@ button.delete:hover {
 }
 
 .card-row.linked { /* Класс для связанных рядов */
-    border-color: #007bff; /* Синяя обводка для связанных */
+    border-color: #FF8C42; /* Оранжевая обводка для связанных */
 }
 
 .logo-upload {
-    background: #f8f9fa;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 16px;
     margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .logo-upload input[type="file"] {
@@ -566,16 +714,20 @@ button.delete:hover {
 }
 
 .logo-upload button {
-    background: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
     color: white;
     border: none;
     padding: 10px 20px;
     border-radius: 8px;
     cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(255, 140, 66, 0.3);
 }
 
 .logo-upload button:hover {
-    background: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 140, 66, 0.4);
 }
 
 .card-row .card {
@@ -586,7 +738,10 @@ button.delete:hover {
 
 .chain-icon {
     font-size: 24px;
-    color: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     align-self: center;
 }
 
@@ -611,17 +766,21 @@ button.delete:hover {
 }
 
 .manager-item {
-    background: #f0f8ff;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     padding: 10px 15px;
-    border-radius: 8px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
     display: flex;
     align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .manager-item:hover {
-    background: #007bff;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
     color: white;
 }
 
@@ -682,7 +841,7 @@ table th {
 }
 
 .copy-btn {
-    background: linear-gradient(135deg, #007bff 0%, #00c6ff 100%);
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
     color: white;
     border: none;
     padding: 8px 16px;
@@ -691,7 +850,7 @@ table th {
     font-weight: 500;
     font-size: 14px;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 5px rgba(0,123,255,0.2);
+    box-shadow: 0 2px 5px rgba(255, 140, 66, 0.3);
     margin-left: 10px;
     display: inline-block;
     vertical-align: middle;
@@ -699,8 +858,7 @@ table th {
 
 .copy-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0,123,255,0.3);
-    background: linear-gradient(135deg, #0056b3 0%, #00aaff 100%);
+    box-shadow: 0 4px 10px rgba(255, 140, 66, 0.4);
 }
 
 @keyframes fadeIn {
@@ -758,4 +916,163 @@ table th {
     font-size: 12px;
     font-weight: 500;
     z-index: 2;
+}
+
+/* ============================================================================ */
+/* СТИЛИ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ / MAIN PAGE STYLES */
+/* ============================================================================ */
+
+/* Контейнер для карточек менеджеров на главной странице */
+.managers-grid-main {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 20px 0;
+    width: 100%;
+}
+
+/* Карточка менеджера */
+.manager-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 16px;
+    padding: 20px 25px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    animation: fadeInUp 0.6s ease both;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.manager-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.manager-card:hover::before {
+    left: 100%;
+}
+
+.manager-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(255, 140, 66, 0.3);
+    border-color: #FF8C42;
+}
+
+/* Аватар менеджера */
+.manager-card-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+}
+
+.manager-card:hover .manager-card-avatar {
+    transform: scale(1.1) rotate(5deg);
+}
+
+/* Контент карточки */
+.manager-card-content {
+    flex: 1;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.manager-card-title {
+    font-size: 20px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+}
+
+.manager-card-balance {
+    font-size: 14px;
+    color: #4a5568;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.manager-card-balance i {
+    color: #28a745;
+}
+
+/* Действия карточки */
+.manager-card-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.manager-card-btn {
+    background: linear-gradient(135deg, #FF8C42 0%, #C8A2C8 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 140, 66, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.manager-card-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(255, 140, 66, 0.5);
+}
+
+/* Пустое состояние (когда нет менеджеров) */
+.empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    grid-column: 1 / -1;
+    animation: fadeIn 0.5s ease;
+}
+
+.empty-state i {
+    display: block;
+    margin-bottom: 20px;
+}
+
+.empty-state h3 {
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+.empty-state p {
+    font-size: 16px;
+    max-width: 400px;
+    margin: 0 auto;
 }

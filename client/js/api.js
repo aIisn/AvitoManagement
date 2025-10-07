@@ -371,6 +371,25 @@ export async function deleteManagerConfirm() {
 }
 
 // ============================================================================
+// ФУНКЦИИ ДЛЯ ГЛАВНОЙ СТРАНИЦЫ / MAIN PAGE FUNCTIONS
+// ============================================================================
+
+// Функция загрузки менеджеров для главной страницы
+// Function to fetch managers for main page
+export async function fetchManagersForMain() {
+    try {
+        const response = await fetch('/api/managers');
+        const managers = await response.json();
+        
+        // Импортируем UI функцию для рендеринга / Import UI function for rendering
+        const { renderManagerCards } = await import('./ui.js');
+        renderManagerCards(managers);
+    } catch (error) {
+        console.error('Ошибка загрузки менеджеров для главной страницы:', error);
+    }
+}
+
+// ============================================================================
 // ФУНКЦИИ ДЛЯ СОЗДАНИЯ СТРУКТУРЫ ПАПОК / FOLDER STRUCTURE FUNCTIONS
 // ============================================================================
 

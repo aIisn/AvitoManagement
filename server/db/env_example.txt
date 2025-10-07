@@ -1,0 +1,19 @@
+# Database Configuration
+# Copy this file to .env and update the values
+
+# PostgreSQL Database URL
+# Format: postgresql://username:password@host:port/database_name
+DATABASE_URL=postgresql://avito_user:avito_password@localhost:5432/avito_management
+
+# Alternative individual settings (if not using DATABASE_URL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=avito_management
+DB_USER=avito_user
+DB_PASSWORD=avito_password
+
+# Database connection settings
+DB_POOL_SIZE=10
+DB_MAX_OVERFLOW=20
+DB_POOL_TIMEOUT=30
+DB_POOL_RECYCLE=3600

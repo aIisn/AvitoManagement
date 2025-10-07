@@ -9,6 +9,16 @@
 // Импорт состояния / Import state
 import { currentManager } from './state.js';
 
+// Флаг для отслеживания загрузки менеджеров на главной странице
+// Flag to track managers loading on main page
+let mainPageManagersLoaded = false;
+
+// Функция для сброса флага загрузки менеджеров (вызывается при создании/удалении)
+// Function to reset managers loading flag (called when creating/deleting)
+export function resetMainPageManagersFlag() {
+    mainPageManagersLoaded = false;
+}
+
 // Импорт API функций / Import API functions
 import { 
     fetchManagers,           // Загрузка списка менеджеров / Fetch managers list
@@ -73,9 +83,13 @@ window.onclick = function(event) {
 
 // Обработчик навигации сайдбара / Sidebar navigation handler
 document.addEventListener('DOMContentLoaded', function() {
-    // Загружаем менеджеров для главной страницы при первой загрузке
-    // Load managers for main page on initial load
-    fetchManagersForMain();
+    // Загружаем менеджеров для главной страницы при первой загрузке, если активна главная вкладка
+    // Load managers for main page on initial load if main tab is active
+    const activeTab = document.querySelector('.tab-content.active');
+    if (activeTab && activeTab.id === 'main' && !mainPageManagersLoaded) {
+        fetchManagersForMain();
+        mainPageManagersLoaded = true;
+    }
     
     document.querySelectorAll('.sidebar-item').forEach(item => {
         item.addEventListener('click', function() {
@@ -103,7 +117,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // При переходе на главную страницу обновляем список менеджеров
             // When switching to main page, refresh managers list
             if (tabId === 'main') {
-                fetchManagersForMain();
+                if (!mainPageManagersLoaded) {
+                    fetchManagersForMain();
+                    mainPageManagersLoaded = true;
+                }
             }
         });
     });

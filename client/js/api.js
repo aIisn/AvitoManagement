@@ -242,6 +242,9 @@ export async function createManager() {
             document.getElementById('manager-name').value = '';
             // Обновляем список менеджеров / Refresh managers list
             await fetchManagers();
+            // Сбрасываем флаг загрузки главной страницы / Reset main page loading flag
+            const { resetMainPageManagersFlag } = await import('./main.js');
+            resetMainPageManagersFlag();
         } else {
             alert(`Ошибка: ${data.error}`);
         }
@@ -316,6 +319,9 @@ export async function saveManagerEdit() {
                 closeEditModal();
                 // Обновляем список менеджеров / Refresh managers list
                 await fetchManagers();
+                // Сбрасываем флаг загрузки главной страницы / Reset main page loading flag
+                const { resetMainPageManagersFlag } = await import('./main.js');
+                resetMainPageManagersFlag();
                 
                 // Если переименованный менеджер был активным, обновляем контент
                 // If renamed manager was active, update content
@@ -353,6 +359,9 @@ export async function deleteManagerConfirm() {
                 closeEditModal();
                 // Обновляем список менеджеров / Refresh managers list
                 await fetchManagers();
+                // Сбрасываем флаг загрузки главной страницы / Reset main page loading flag
+                const { resetMainPageManagersFlag } = await import('./main.js');
+                resetMainPageManagersFlag();
                 
                 // Если удалённый менеджер был активным, очищаем контент
                 // If deleted manager was active, clear content

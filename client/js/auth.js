@@ -191,6 +191,34 @@ function validateField(field) {
     return true;
 }
 
+function validateForm(form) {
+    const fields = form.querySelectorAll('.form-input');
+    let isValid = true;
+    
+    // Валидируем все поля формы
+    fields.forEach(field => {
+        if (!validateField(field)) {
+            isValid = false;
+        }
+    });
+    
+    // Дополнительные проверки для формы регистрации
+    if (form.id === 'registerForm') {
+        if (!validatePasswordConfirmation()) {
+            isValid = false;
+        }
+        
+        // Проверка согласия с условиями
+        const agreeTerms = form.querySelector('#agreeTerms');
+        if (agreeTerms && !agreeTerms.checked) {
+            showNotification('Необходимо согласиться с условиями использования', 'error');
+            isValid = false;
+        }
+    }
+    
+    return isValid;
+}
+
 function validatePasswordConfirmation() {
     const password = document.getElementById('registerPassword');
     const confirmPassword = document.getElementById('confirmPassword');
@@ -275,7 +303,7 @@ function handleLoginSubmit(e) {
     const rememberMe = formData.get('rememberMe');
     
     // Валидация / Validation
-    if (!validateLoginForm(username, password)) {
+    if (!validateLoginForm()) {
         return;
     }
     
@@ -325,7 +353,7 @@ function handleRegisterSubmit(e) {
     const agreeTerms = formData.get('agreeTerms');
     
     // Валидация / Validation
-    if (!validateRegisterForm(username, email, password, confirmPassword, agreeTerms)) {
+    if (!validateRegisterForm()) {
         return;
     }
     
@@ -353,68 +381,16 @@ function handleRegisterSubmit(e) {
         });
 }
 
-function validateLoginForm(username, password) {
-    let isValid = true;
-    
-    if (!username || !username.trim()) {
-        showFieldError(document.getElementById('loginUsername'), 'Введите имя пользователя');
-        isValid = false;
-    }
-    
-    if (!password || !password.trim()) {
-        showFieldError(document.getElementById('loginPassword'), 'Введите пароль');
-        isValid = false;
-    }
-    
-    return isValid;
+function validateLoginForm() {
+    // Используем универсальную валидацию формы
+    const form = document.getElementById('loginForm');
+    return validateForm(form);
 }
 
-function validateRegisterForm(username, email, password, confirmPassword, agreeTerms) {
-    let isValid = true;
-    
-    // Валидация имени пользователя / Username validation
-    if (!username || !username.trim()) {
-        showFieldError(document.getElementById('registerUsername'), 'Введите имя пользователя');
-        isValid = false;
-    } else if (!isValidUsername(username)) {
-        showFieldError(document.getElementById('registerUsername'), 'Имя пользователя должно содержать 3-20 символов (буквы, цифры, _)');
-        isValid = false;
-    }
-    
-    // Валидация email / Email validation
-    if (!email || !email.trim()) {
-        showFieldError(document.getElementById('registerEmail'), 'Введите email');
-        isValid = false;
-    } else if (!isValidEmail(email)) {
-        showFieldError(document.getElementById('registerEmail'), 'Введите корректный email адрес');
-        isValid = false;
-    }
-    
-    // Валидация пароля / Password validation
-    if (!password || !password.trim()) {
-        showFieldError(document.getElementById('registerPassword'), 'Введите пароль');
-        isValid = false;
-    } else if (!isValidPassword(password)) {
-        showFieldError(document.getElementById('registerPassword'), 'Пароль должен содержать минимум 6 символов');
-        isValid = false;
-    }
-    
-    // Валидация подтверждения пароля / Password confirmation validation
-    if (!confirmPassword || !confirmPassword.trim()) {
-        showFieldError(document.getElementById('confirmPassword'), 'Подтвердите пароль');
-        isValid = false;
-    } else if (password !== confirmPassword) {
-        showFieldError(document.getElementById('confirmPassword'), 'Пароли не совпадают');
-        isValid = false;
-    }
-    
-    // Валидация согласия с условиями / Terms agreement validation
-    if (!agreeTerms) {
-        showNotification('Необходимо согласиться с условиями использования', 'error');
-        isValid = false;
-    }
-    
-    return isValid;
+function validateRegisterForm() {
+    // Используем универсальную валидацию формы
+    const form = document.getElementById('registerForm');
+    return validateForm(form);
 }
 
 // ============================================================================

@@ -12,7 +12,10 @@ export * from './auth-manager.js';
 
 // Основные функции для быстрого доступа
 export { 
-    initAuth,
+    initAuth
+} from './auth-manager.js';
+
+export { 
     login,
     register,
     verifyEmail,
@@ -21,4 +24,4 @@ export {
     clearAuthData,
     redirectToAuth,
     resendCode
-} from './auth-manager.js';
+} from './auth-core.js';

@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Запускаем периодическую проверку авторизации / Start periodic auth check
     startAuthCheck();
     
+    console.log('✅ Защита авторизации активна');
 });
 
 // ============================================================================
@@ -35,6 +36,7 @@ async function checkAuthentication() {
         sessionToken = localStorage.getItem('session_token') || getCookie('session_token');
         
         if (!sessionToken) {
+            console.log('🔒 Токен сессии не найден, перенаправление на авторизацию');
             redirectToAuth();
             return false;
         }
@@ -50,6 +52,7 @@ async function checkAuthentication() {
         
         if (!response.ok) {
             if (response.status === 401) {
+                console.log('🔒 Сессия истекла, перенаправление на авторизацию');
                 clearAuthData();
                 redirectToAuth();
                 return false;
@@ -61,6 +64,7 @@ async function checkAuthentication() {
         
         if (data.success && data.user) {
             currentUser = data.user;
+            console.log('✅ Пользователь авторизован:', currentUser.username);
             
             // Обновляем UI с данными пользователя / Update UI with user data
             updateUserInterface();
@@ -167,6 +171,9 @@ async function logout() {
         
         if (response.ok) {
             const data = await response.json();
+            if (data.success) {
+                console.log('✅ Успешный выход из системы');
+            }
         }
         
     } catch (error) {
@@ -216,6 +223,7 @@ window.fetch = function(url, options = {}) {
     return originalFetch(url, options).then(response => {
         // Проверяем ответы на ошибки авторизации / Check responses for auth errors
         if (response.status === 401 && url.startsWith('/api/')) {
+            console.log('🔒 Обнаружена ошибка авторизации, перенаправление');
             clearAuthData();
             redirectToAuth();
         }

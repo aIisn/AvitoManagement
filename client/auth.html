@@ -264,6 +264,17 @@
     </div>
 
     <!-- JavaScript для управления формами -->
-    <script src="js/auth.js"></script>
+    <script type="module">
+        import { initAuth } from './js/auth/index.js';
+        
+        // Инициализируем систему авторизации после загрузки DOM
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initAuth();
+            } catch (error) {
+                console.error('Ошибка инициализации системы авторизации:', error);
+            }
+        });
+    </script>
 </body>
 </html>

@@ -17,7 +17,7 @@ import {
 } from './auth-core.js';
 
 import { initSecurityMonitoring } from './auth-security.js';
-import { switchForm, showError, showSuccess, setLoading } from './auth-ui.js';
+import { switchForm, showError, showSuccess, setLoading, showFieldError, clearFieldError } from './auth-ui.js';
 
 // ============================================================================
 // ИНИЦИАЛИЗАЦИЯ АВТОРИЗАЦИИ / AUTHENTICATION INITIALIZATION
@@ -27,8 +27,6 @@ import { switchForm, showError, showSuccess, setLoading } from './auth-ui.js';
  * Инициализация системы авторизации
  */
 export async function initAuth() {
-    console.log('🔐 Инициализация системы авторизации');
-    
     try {
         // Инициализируем мониторинг безопасности
         initSecurityMonitoring();
@@ -37,22 +35,17 @@ export async function initAuth() {
         const isAuth = await checkAuth();
         
         if (isAuth) {
-            console.log('✅ Пользователь авторизован');
             // Запускаем периодическую проверку
             startAuthCheck();
             // Обновляем UI
             updateUserInterface();
-        } else {
-            console.log('🔒 Пользователь не авторизован');
         }
         
         // Инициализируем обработчики событий
         initEventHandlers();
         
-        console.log('✅ Система авторизации инициализирована');
-        
     } catch (error) {
-        console.error('❌ Ошибка инициализации авторизации:', error);
+        console.error('Ошибка инициализации авторизации:', error);
     }
 }
 
@@ -220,8 +213,8 @@ function initRealTimeValidation() {
     const inputs = document.querySelectorAll('.form-input');
     
     inputs.forEach(input => {
-        input.addEventListener('blur', function() {
-            validateFieldRealTime(this);
+        input.addEventListener('blur', async function() {
+            await validateFieldRealTime(this);
         });
         
         input.addEventListener('input', function() {
@@ -264,8 +257,8 @@ function togglePasswordVisibility(input, toggleButton) {
 /**
  * Валидация поля в реальном времени
  */
-function validateFieldRealTime(field) {
-    const { validateForm } = require('./auth-validation.js');
+async function validateFieldRealTime(field) {
+    const { validateForm } = await import('./auth-validation.js');
     const form = field.closest('form');
     if (form) {
         const formData = new FormData(form);
